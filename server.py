@@ -47,9 +47,6 @@ def create_file(message):
 
     return json.dumps(res)
 
-def read_file(message):
-    pass
-
 def delete_file(message):
     root = message["args"]["user"]
     path = message["args"]["path"]
@@ -93,11 +90,38 @@ def info_file(message):
         res = {"status": "Denied", "message": "File info retrieval did not succeed - no such file."}
     return json.dumps(res)
 
+def copy_file(message):
+    root = message["args"]["user"]
+    path = message["args"]["path"]
+    local_path = root + path
+
+    ind = path.rfind(".")
+    new_path = path[:ind]
+    ex = path.split("/")[-1].split(".")[-1]
+    copy_num = int(subprocess.check_output('ls ' + root + new_path + '* | wc -l', shell=True).decode(
+        "utf-8").strip())
+    if ind == -1:
+        new_name = path + '_copy{}'.format(
+            str(copy_num))
+    else:
+        new_name = path[:ind] + '_copy{}.'.format(
+            str(copy_num)) + str(ex)
+
+    if check_path(message):
+        os.system(
+            'cp ' + str(root) + path + ' ' + root + new_name)
+        res = {"status": "OK", "message": "File was copied successfully",
+                "args": {"filename": new_name.split("s/")[-1]}}
+    else:
+        res = {"status": "Denied", "message": "File copying did not succeed - no such file."}
+
+    return json.dumps(res)
+
+
 if __name__ == "__main__":
-    message1 = json.dumps({"command": "touch", "args": {"user": "/Users/admin/Desktop/ds/", "path": "test.txt"}})
+    message1 = json.dumps({"command": "touch", "args": {"user": "/Users/admin/Desktop/ds/", "path": "test"}})
     message2 = json.dumps({"command": "mv",
     "args": {"user": "/Users/admin/Desktop", "src": "/ds_project/test.txt", "dst": "/ds/test.txt"}})
     message3 = json.dumps({"command": "info", "args": {"user": "/Users/admin/Desktop/ds/", "path": "test.txt"}})
 
-    print(create_file(json_read(message1)))
-    print(info_file(json_read(message3)))
+    print(copy_file(json_read(message1)))
