@@ -1,5 +1,7 @@
 import json
 import os
+import subprocess
+
 
 """ JSON format for received message:
         {
@@ -74,8 +76,28 @@ def move_file(message):
         res = {"status": "Denied", "message": "File moving did not succeed - no such source path."}
     return json.dumps(res)
 
+def info_file(message):
+    root = message["args"]["user"]
+    path = message["args"]["path"]
+    local_path = root + path
+
+    if check_path(message):
+        size = subprocess.check_output('stat -c %s ' + local_path, shell=True).decode("utf-8").strip()
+        status = subprocess.check_output('stat -c %z ' + local_path, shell=True).decode("utf-8").strip()
+        i_node_name = subprocess.check_output('stat -c %i ' + local_path, shell=True).decode("utf-8").strip()
+
+        res = {"status": "OK", "message": "File info retrieved successfully:",
+                "args": {"size": "{}".format(size), "file_status": "{}".format(status),
+                "i-node": "i_node_name", "path": "{}".format(local_path)}}
+    else:
+        res = {"status": "Denied", "message": "File info retrieval did not succeed - no such file."}
+    return json.dumps(res)
+
 if __name__ == "__main__":
-    message1 = json.dumps({"command": "touch", "args": {"user": "/Users/admin/Desktop/ds_project/", "path": "test.txt"}})
-    message2 = json.dumps({"command": "touch",
+    message1 = json.dumps({"command": "touch", "args": {"user": "/Users/admin/Desktop/ds/", "path": "test.txt"}})
+    message2 = json.dumps({"command": "mv",
     "args": {"user": "/Users/admin/Desktop", "src": "/ds_project/test.txt", "dst": "/ds/test.txt"}})
-    print(move_file(json_read(message2)))
+    message3 = json.dumps({"command": "info", "args": {"user": "/Users/admin/Desktop/ds/", "path": "test.txt"}})
+
+    print(create_file(json_read(message1)))
+    print(info_file(json_read(message3)))
