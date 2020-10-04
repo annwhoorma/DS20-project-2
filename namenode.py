@@ -2,7 +2,14 @@
 # fullpath is a list like ["anya", "folder", "file"] and it's always a full path
 
 from neo4j import GraphDatabase
+import http.server
+import socketserver
+import json
 
+CLIENT_PORT = 8080
+DATANODE_PORT = 0000 # 1?
+
+# for neo4j
 uri = "bolt://localhost:7687"
 username = "neo4j"
 password = "ohmyg0d"
@@ -11,21 +18,61 @@ def print_error(message):
     print("ERROR: {m}".format(m=message)) if message else print('ERROR')
     # return None
 
-class NamenodeClient:
+
+class ClientInterface(http.server.BaseHTTPRequestHandler):
     # namenode <-> client interface
-    def __init__(self, filesystem, server, client):
+    def __init__(self):
         pass
 
-class NamenodeDatanode:
+    def _set_headers(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        
+    def do_HEAD(self):
+        self._set_headers()
+
+    def do_GET(self):
+        content_length = int(self.headers['content-length'])
+        content = self.rfile.read(content_length)
+        
+        msg = json.loads(json.loads(content.decode()))
+        print(type(msg), msg)
+        
+        if msg["action"] == "auth":
+            if msg["args"]["login"] == "Dmmc":
+                response = json.dumps({"status":"ok"})
+            else:
+                response = json.dumps({"status":"invalid user"})
+        else:
+            response = json.dumps({"status":"unknown command"})
+
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(response.encode())
+
+
+class DatanodeInterface(http.server.BaseHTTPRequestHandler):
     # namenode <-> datanode interface
-    def __init__(self, filesystem, server, client):
+    def __init__(self):
         pass
+
 
 class Namenode:
+    # namenode <-> datanode interface
     def __init__(self, filesystem, server, client):
-        self.filesystem = filesystem
-        self.server = server
-        self.client = client
+        self.client_interface = ClientInterface()
+        with socketserver.TCPServer(("", CLIENT_PORT), self.client_interface) as httpd_client:
+            print("Just another not suspicious fake namenode at the port: ", CLIENT_PORT)
+            httpd_client.serve_forever()
+
+        self.dataNode_interface = DatanodeInterface()
+        with socketserver.TCPServer(("", DATANODE_PORT), self.dataNode_interface) as httpd_datanode:
+            print("Just another not suspicious fake namenode at the port: ", DATANODE_PORT)
+            httpd_datanode.serve_forever()
+
+        self.db_interface = DBInterface()
+
 
 class User:
     def __init__(self, username, fileSystem):
@@ -36,8 +83,9 @@ class User:
         self.username = new_name
         self.root_dir = '/{u}/'.format(u=new_name.lower())
 
-class FileSystemStructure:
-    def __init__(self, driver):
+class DBInterface:
+    def __init__(self):
+        self.driver = GraphDatabase.driver(uri, auth=(username, password))
         self.uri = uri
         self.cur_dir = "/"
         self.driver = driver
@@ -360,5 +408,3 @@ class FileSystemStructure:
 
 
     
-driver = GraphDatabase.driver(uri, auth=(username, password))
-fs = FileSystemStructure(driver)
