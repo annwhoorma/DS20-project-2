@@ -18,10 +18,17 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
         content = self.rfile.read(content_length)
         
         
-        msg = json.loads(content)
-        print(msg)
+        msg = json.loads(json.loads(content.decode()))
+        print(type(msg), msg)
         
-        response = json.dumps({"status":"ok"})
+        if msg["action"] == "auth":
+            if msg["args"]["login"] == "Dmmc":
+                response = json.dumps({"status":"ok"})
+            else:
+                response = json.dumps({"status":"invalid user"})
+        else:
+            response = json.dumps({"status":"unknown command"})
+        
         
         self.send_response(200)
         self.end_headers()

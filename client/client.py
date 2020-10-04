@@ -17,10 +17,15 @@ def action():
     
     response = requests.get("http://0.0.0.0:8080", json=msg).json()
     
+    if response["status"] == "ok":
+        return "You successfully logged in!"
+    elif response["status"] == "invalid user":
+        return "wrong user lol"
+    else:
+        return "did not implement yet"
+    
     print(response)
     
-    
-    return "You typed Login: {} and Pass: {}\nResponse: {}".format(login, password, response)
 
 if __name__ == "__main__":
     app.run(host = "0.0.0.0", port = 1234)
