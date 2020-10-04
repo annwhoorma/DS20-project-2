@@ -6,21 +6,16 @@ import socket
 from multiprocessing import Process
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-PORT_HTTP = 1337
-PORT_FTP = 7331
+# tudu - tokenizer for paths, test info in linux OS, agreement on naming in JSONs commands
 
-def init_user(message):
-    root = message["args"]["user"]
-    try:
-        os.mkdir('{}'.format(root))
-        res = {"status": "OK", "message": "Root directory successfully initialized"}
-    except FileExistsError:
-        shutil.rmtree('{}'.format(root), ignore_errors=True)
-        os.mkdir('{}'.format(root))
-        res = {"status": "OK", "message": "Root directory was reinitialized and cleaned"}
-    return json.dumps(res)
+# testing - curl -X GET -d
+# '{"command": "file_delete", "args": {"user": "/Users/admin/Desktop/ds/", "path": "test.txt"}}'
+# localhost:1337
 
+HTTP_PORT = 1337
+FTP_PORT = 7331
 
+########### inner functions ###########
 def check_path(message):
     root = message["args"]["user"]
     path = message["args"]["path"]
@@ -33,6 +28,18 @@ def check_root(root):
 def json_read(message):
     json_object = json.loads(message.decode("utf-8"))
     return json_object
+
+########### functions for external commands ###########
+def init_user(message):
+    root = message["args"]["user"]
+    try:
+        os.mkdir('{}'.format(root))
+        res = {"status": "OK", "message": "Root directory successfully initialized"}
+    except FileExistsError:
+        shutil.rmtree('{}'.format(root), ignore_errors=True)
+        os.mkdir('{}'.format(root))
+        res = {"status": "OK", "message": "Root directory was reinitialized and cleaned"}
+    return json.dumps(res)
 
 def create_file(message):
     root = message["args"]["user"]
@@ -100,9 +107,11 @@ def copy_file(message):
 
     ind = path.rfind(".")
     new_path = path[:ind]
+    print(new_path)
     ex = path.split("/")[-1].split(".")[-1]
     copy_num = int(subprocess.check_output('ls ' + root + new_path + '* | wc -l', shell=True).decode(
         "utf-8").strip())
+
     if ind == -1:
         new_name = path + '_copy{}'.format(
             str(copy_num))
@@ -186,7 +195,7 @@ def send_file(message):
     s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     host = ""
-    s.bind((host, PORT_FTP))
+    s.bind((host, FTP_PORT))
     s.listen(5)
 
     conn, addr = s.accept()
@@ -217,7 +226,7 @@ def receive_file(message):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     host = ""
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind((host, PORT_FTP))
+    s.bind((host, FTP_PORT))
     s.listen(5)
     conn, addr = s.accept()
 
@@ -231,25 +240,51 @@ def receive_file(message):
     conn.close()
     s.close()
 
-    if node_ip == leader_ip:
-        command = {"status": "OK", "args": {"username": root, "path": path}}
-        try:
-            requests.get('http://' + nameserver_ip + ':' + str(nameserver_port), json=command, timeout=1)
-        except requests.exceptions.ReadTimeout:
-            pass
-
 def write_file(message):
     process = Process(target=receive_file(message))
     process.start()
     res = {"status": "OK", "message": "Uploading..."}
     return json.dumps(res)
 
+########### Class for HTTP handler ###########
+class Http_handler(BaseHTTPRequestHandler):
+    def do_GET(self):
 
+        content_length = int(self.headers['Content-Length'])
+        data = self.rfile.read(content_length)
+        message = json_read(data)
+        command = message['command']
+
+        if command == "init":
+            res = init_user(message)
+        elif command == "create_dir":
+            res = create_directory(message)
+        elif command == "list_dir":
+            res = list_directory(message)
+        elif command == "delete_dir":
+            res = delete_directory(message)
+        elif command == "file_info":
+            res = info_file(message)
+        elif command == "file_delete":
+            res = delete_file(message)
+        elif command == "file_copy":
+            res = copy_file(message)
+        elif command == "file_create":
+            res = create_file(message)
+        elif command == "file_move":
+            res = move_file(message)
+        elif command == "read_file":
+            res = read_file(message)
+        elif command == "write_file":
+            res = write_file(message)
+        else:
+            res = json.dumps({"status": "Failed", "message": "Invalid command"})
+
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(bytes(res, "utf-8"))
 
 if __name__ == "__main__":
-    message1 = json.dumps({"command": "touch", "args": {"user": "/Users/admin/Desktop/ds/new_folder", "path": "test1"}})
-    message2 = json.dumps({"command": "mv",
-    "args": {"user": "/Users/admin/Desktop", "src": "/ds_project/test.txt", "dst": "/ds/test.txt"}})
-    message3 = json.dumps({"command": "info", "args": {"user": "user1", "path": "/test.txt"}})
-
-    print(init_user(json_read(message3)))
+    server_address = ('', HTTP_PORT)
+    httpd = HTTPServer(server_address, Http_handler)
+    httpd.serve_forever()
