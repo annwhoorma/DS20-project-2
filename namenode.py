@@ -116,9 +116,23 @@ class DBInterface:
         self.driver = GraphDatabase.driver(uri, auth=(username, password))
         self.namenode = namenode
         self.cur_dir = "/"
+        self.create_constraints()
 
-    def init_uuids(self):
-        pass
+    def create_constraints(self):
+        query1 = """
+                create constraint on (dir: Dir)
+                assert dir.uuid is unique
+
+                create constraint on (file: File)
+                assert file.uuid is unique
+                """
+        self.driver.session().write_transaction(self.submit_query, query1)
+
+        query2 = """
+                call apoc.uuid.install('Dir')
+                call.apoc.uuid.install('File')
+                """
+        self.driver.session().write_transaction(self.submit_query, query2)
 
     def add_root(self, name):
         query = """
@@ -145,9 +159,6 @@ class DBInterface:
             fullpath = cur_dir_path + fullpath
 
         return fullpath if self.namenode.user_exists(fullpath[0]) else print_error('root directory for this user does not exist')
-
-    def get_cur_dir(self):
-        return self.cur_dir
 
     def get_fullpath_pairs(self, path):
         pairs = []
