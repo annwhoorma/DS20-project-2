@@ -2,22 +2,25 @@ import json
 import os
 import subprocess
 import shutil
+import socket
+from multiprocessing import Process
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+PORT_HTTP = 1337
+PORT_FTP = 7331
+
+def init_user(message):
+    root = message["args"]["user"]
+    try:
+        os.mkdir('{}'.format(root))
+        res = {"status": "OK", "message": "Root directory successfully initialized"}
+    except FileExistsError:
+        shutil.rmtree('{}'.format(root), ignore_errors=True)
+        os.mkdir('{}'.format(root))
+        res = {"status": "OK", "message": "Root directory was reinitialized and cleaned"}
+    return json.dumps(res)
 
 
-""" JSON format for received message:
-        {
-            "command": "string (mkdir, for example)",
-            "args": [
-                "user": "string",
-                "path": "string"
-                ]
-        }
-    JSON format for sended message:
-    {
-        "status": "string (OK, for example)",
-        "message": "string (There is no such directory, for example)"
-    }
-"""
 def check_path(message):
     root = message["args"]["user"]
     path = message["args"]["path"]
@@ -28,8 +31,8 @@ def check_root(root):
     return os.path.exists(root)
 
 def json_read(message):
-    obj = json.loads(message)
-    return obj
+    json_object = json.loads(message.decode("utf-8"))
+    return json_object
 
 def create_file(message):
     root = message["args"]["user"]
@@ -175,10 +178,78 @@ def list_directory(message):
             res = {"status": "OK",
             "message": "Required directory was successfelly listed", "args": {"data": "{}".format(listing)}}
     return json.dumps(res)
+
+def send_file(message):
+    root = message["args"]["user"]
+    path = message["args"]["path"]
+
+    s = socket.socket()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    host = ""
+    s.bind((host, PORT_FTP))
+    s.listen(5)
+
+    conn, addr = s.accept()
+    if os.path.exists(root + path):
+        f = open(root + path, 'rb')
+        l = f.read(1024)
+        while (l):
+            conn.send(l)
+            l = f.read(1024)
+        f.close()
+        res = {"status": "OK", "message": "Filed was successfuly sent"}
+    else:
+        res = {"status": "Failed", "message": "No such file"}
+    conn.close()
+    s.close()
+    return json.dumps(res)
+
+def read_file(message):
+    process = Process(target=send_file(message))
+    process.start()
+    return json.dumbs({"status": "OK", "message": "Uploading..."})
+
+def receive_file(message):
+    root = message["args"]["user"]
+    path = message["args"]["path"]
+    filename = root + path
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    host = ""
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind((host, PORT_FTP))
+    s.listen(5)
+    conn, addr = s.accept()
+
+    with open('{}'.format(filename), 'wb') as f:
+        while True:
+            data = conn.recv(1024)
+            if not data:
+                break
+            f.write(data)
+    f.close()
+    conn.close()
+    s.close()
+
+    if node_ip == leader_ip:
+        command = {"status": "OK", "args": {"username": root, "path": path}}
+        try:
+            requests.get('http://' + nameserver_ip + ':' + str(nameserver_port), json=command, timeout=1)
+        except requests.exceptions.ReadTimeout:
+            pass
+
+def write_file(message):
+    process = Process(target=receive_file(message))
+    process.start()
+    res = {"status": "OK", "message": "Uploading..."}
+    return json.dumps(res)
+
+
+
 if __name__ == "__main__":
     message1 = json.dumps({"command": "touch", "args": {"user": "/Users/admin/Desktop/ds/new_folder", "path": "test1"}})
     message2 = json.dumps({"command": "mv",
     "args": {"user": "/Users/admin/Desktop", "src": "/ds_project/test.txt", "dst": "/ds/test.txt"}})
-    message3 = json.dumps({"command": "info", "args": {"user": "/Users/admin/Desktop/ds/", "path": "/folder"}})
+    message3 = json.dumps({"command": "info", "args": {"user": "user1", "path": "/test.txt"}})
 
-    print(list_directory(json_read(message3)))
+    print(init_user(json_read(message3)))
