@@ -71,33 +71,17 @@ class Namenode:
             print("Just another not suspicious fake namenode at the port: ", DATANODE_PORT)
             httpd_datanode.serve_forever()
 
-        self.db_interface = DBInterface()
-
-
-class User:
-    def __init__(self, username, fileSystem):
-        self.username = username
-        self.root_dir = '/{u}/'.format(u=username.lower())
-
-    def rename_user(self, new_name):
-        self.username = new_name
-        self.root_dir = '/{u}/'.format(u=new_name.lower())
-
-class DBInterface:
-    def __init__(self):
-        self.driver = GraphDatabase.driver(uri, auth=(username, password))
-        self.uri = uri
-        self.cur_dir = "/"
-        self.driver = driver
+        self.db_interface = DBInterface(self)
         self.users = []
 
     def initialize(self, username):
-        # check username uniquness
+            # check username uniquness
         for user in self.users:
             if user.name == username:
                 print_error('user with this name already exists')
                 return
         self.add_user(username)
+        self.db_interface.add_root(username)
 
     def add_user(self, username):
         user = User(username, self)
@@ -117,10 +101,36 @@ class DBInterface:
                 return True
         return False
 
+
+class User:
+    def __init__(self, username, fileSystem):
+        self.username = username
+        self.root_dir = '/{u}/'.format(u=username.lower())
+
+    def rename_user(self, new_name):
+        self.username = new_name
+        self.root_dir = '/{u}/'.format(u=new_name.lower())
+
+class DBInterface:
+    def __init__(self, namenode):
+        self.driver = GraphDatabase.driver(uri, auth=(username, password))
+        self.namenode = namenode
+        self.cur_dir = "/"
+
+    def init_uuids(self):
+        pass
+
+    def add_root(self, name):
+        query = """
+                create (root: Dir {name: "{name}"})
+                """.format(name=name)
+
+        self.driver.session().write_transaction(self.submit_query, query)
+
     def is_fullpath(self, path):
         return True if path[0] == '/' else False
 
-    def get_fullpath_list(self, path):
+    def get_fullpath_as_list(self, path):
         fullpath = []
         if self.is_fullpath(path):
             # it's a full path => starts with a root
@@ -134,7 +144,7 @@ class DBInterface:
             cur_dir_path.remove('')
             fullpath = cur_dir_path + fullpath
 
-        return fullpath if self.user_exists(fullpath[0]) else print_error('root directory for this user does not exist')
+        return fullpath if self.namenode.user_exists(fullpath[0]) else print_error('root directory for this user does not exist')
 
     def get_cur_dir(self):
         return self.cur_dir
@@ -149,7 +159,7 @@ class DBInterface:
         result = tx.run(query)
         return result.single()
 
-    def list_all(self, uuid="", fullpath=None):
+    def list_all(self, uuid="", fullpath=""):
         # specify either uuid or fullpath, not both, otherwise fullpath will have a priority
         if fullpath and not uuid:
             # if full path was specified
@@ -209,7 +219,7 @@ class DBInterface:
     def create_file(self, name, path="", uuid=""):
         # uuid is uuid of the directory 
         if not uuid and path:
-            fullpath = self.get_fullpath_list(path)
+            fullpath = self.get_fullpath_as_list(path)
             result = self.path_exists(fullpath)
             if not result:
                 print_error('path does not exist')
@@ -234,7 +244,7 @@ class DBInterface:
         # datanodes
         
     def read_file(self, path):
-        fullpath = self.get_fullpath_list(path)
+        fullpath = self.get_fullpath_as_list(path)
         result = self.path_exists(fullpath)
         if not result:
             print_error('path does not exist')
@@ -242,7 +252,7 @@ class DBInterface:
         # datanodes
 
     def write_file(self, path):
-        fullpath = self.get_fullpath_list(path)
+        fullpath = self.get_fullpath_as_list(path)
         result = self.path_exists(fullpath)
         if not result:
             print_error('path does not exist')
@@ -259,7 +269,7 @@ class DBInterface:
             return
 
         if not uuid and path:
-            fullpath = self.get_fullpath_list(path)
+            fullpath = self.get_fullpath_as_list(path)
             result = self.path_exists(fullpath)
             if not result:
                 print_error('path does not exist')
@@ -279,7 +289,7 @@ class DBInterface:
         # datanodes
 
     def get_file_info(self, path):
-        fullpath = self.get_fullpath_list(path)
+        fullpath = self.get_fullpath_as_list(path)
         result = self.path_exists(fullpath)
         if not result:
             print_error('path does not exist')
@@ -293,8 +303,8 @@ class DBInterface:
         # datanodes
 
     def copy_file(self, path, copy_to_path, delete_original=False):
-        fullpath1 = self.get_fullpath_list(path)
-        fullpath2 = self.get_fullpath_list(copy_to_path)
+        fullpath1 = self.get_fullpath_as_list(path)
+        fullpath2 = self.get_fullpath_as_list(copy_to_path)
         result1 = self.path_exists(fullpath1)
         result2 = self.path_exists(fullpath2)
         if not result1 or not result2:
@@ -324,7 +334,7 @@ class DBInterface:
         self.copy_file(path, move_to_path, delete_original=True)
 
     def change_directory(self, path):
-        fullpath = self.get_fullpath_list(path)
+        fullpath = self.get_fullpath_as_list(path)
         result = self.path_exists(fullpath)
         if not result:
             print_error('path does not exist')
@@ -340,7 +350,7 @@ class DBInterface:
             self.cur_dir += '/{e}'.format(e=entry)        
 
     def list_files(self, path):
-        fullpath = self.get_fullpath_list(path)
+        fullpath = self.get_fullpath_as_list(path)
         result = self.path_exists(fullpath)
         if not result:
             print_error('path does not exist')
@@ -351,10 +361,10 @@ class DBInterface:
             return
 
         files = self.list_all(uuid=uuid)
-        ##### return files as json or smt
+        ##### return files as json
 
     def make_dir(self, path, name):
-        fullpath = self.get_fullpath_list(path)
+        fullpath = self.get_fullpath_as_list(path)
         result = self.path_exists(fullpath)
         if not result:
             print_error('path does not exist')
@@ -377,7 +387,7 @@ class DBInterface:
         self.driver.session().write_transaction(self.submit_query, query)
 
     def delete_dir(self, path):
-        fullpath = self.get_fullpath_list(path)
+        fullpath = self.get_fullpath_as_list(path)
         result = self.path_exists(fullpath)
         if not result:
             print_error('path does not exist')
@@ -398,7 +408,7 @@ class DBInterface:
 
         query = """
                 match (dir: Dir)-[:HAS*0..]->(child) where dir.uuid = "{uuid}"
-                detach delete (dir)
+                detach delete (child)
                 """.format(uuid=uuid)
 
         self.driver.session().write_transaction(self.submit_query, query)
