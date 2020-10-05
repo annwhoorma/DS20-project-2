@@ -2,17 +2,27 @@ import http.server
 import socketserver
 import json
 
-ok = "ok"
-notok = "notok"
+ok = "<3"
+notok = "</3"
 
 PORT = 8080
 
 def for_main():
     return json.dumps({"status" : ok,
                        "args" : {"free_space" : 1337,
-                                 "cur_dir" : "/root/jonata"}})
+                                 "cur_dir" : "/root/jonata",
+                                 "error" : ""}})
 def no():
-    return json.dumps({"status" : notok})
+    return json.dumps({"status" : notok,
+                       "error" : ""})
+
+def read_dir():
+    return json.dumps({"status" : ok,
+                       "args" : {"dirs" : [{ "name" : "maman", "type" : "dir"},
+                                           { "name" : "another_dir", "type" : "dir"},
+                                           { "name" : "meme.png", "type" : "file"},
+                                           { "name" : "video.mp4", "type" : "file"}],
+                                 "error" : ""}})
 
 class fake_namenode(http.server.BaseHTTPRequestHandler):  
     def _set_headers(self):
@@ -47,6 +57,10 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
             else:
                 response = no()
                 
+        elif msg["action"] == "read_dir":
+            # changing directiry here
+            response = read_dir()
+            
         else:
             response = no()
         

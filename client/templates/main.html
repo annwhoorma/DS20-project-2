@@ -11,7 +11,26 @@
         <h2>Hi, {{name}}! Welcome to DFSARA!</h2>
     
         <p>Free space: <b>{{free_space}}</b> bytes</p>
+        
         <p>Current directory: <b>{{cur_dir}}</b></p>
+        
+        
+        <form action=read_dir method="POST">
+            Path to the directory:
+            <input type="text" id="target_dir" name="target_dir">
+            <input type="submit" value="List content of directory">
+        </form>
+        
+        {{read_dir_error}}
+        
+        {% for dict in read_dir_output %}
+        {% if dict["type"] == "file"%}
+            <p>{{dict["name"]}} <font color="green">{{dict["type"]}}</font></p>
+        {% endif%}
+        {% if dict["type"] == "dir"%}
+            <p>{{dict["name"]}} <font color="blue">{{dict["type"]}}</font></p>
+        {% endif%}
+        {% endfor %}
     
     </body>
 
