@@ -2,6 +2,9 @@ from flask import Flask, render_template, request
 import json
 import requests
 
+ok = "ok"
+notok = "notok"
+
 app = Flask(__name__)
 
 @app.route("/")
@@ -17,9 +20,10 @@ def login():
     
     response = requests.get("http://0.0.0.0:8080", json = msg).json()
     
-    if response["status"] == "ok":
-        return render_template("main.html")
-    elif response["status"] == "notok":
+    if response["status"] == ok:
+        free_space = response["args"]["free_space"]
+        return render_template("main.html", name = login, free_space = free_space)
+    elif response["status"] == notok:
         return render_template("failed_login.html",
                                message = "Please go back and try again!",
                                message_2 = "Or you can create a new user right here!")
@@ -35,9 +39,10 @@ def new_user():
     
     response = requests.get("http://0.0.0.0:8080", json = msg).json()
     
-    if response["status"] == "ok":
-        return render_template("main.html")
-    elif response["status"] == "notok":
+    if response["status"] == ok:
+        free_space = response["args"]["free_space"]
+        return render_template("main.html", name = login, free_space = free_space)
+    elif response["status"] == notok:
         return render_template("failed_login.html",
                                message = "Such user already exists!",
                                message_2 = "")

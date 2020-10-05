@@ -2,6 +2,9 @@ import http.server
 import socketserver
 import json
 
+ok = "ok"
+notok = "notok"
+
 PORT = 8080
 
 class fake_namenode(http.server.BaseHTTPRequestHandler):  
@@ -18,26 +21,27 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
         content = self.rfile.read(content_length)
         
         msg = json.loads(json.loads(content.decode()))
-        print(type(msg), msg)
+        print(msg)
         
         if msg["action"] == "auth":
             # if cridentials are valid then let user in
             if msg["args"]["login"] == "Dmmc":
-                response = json.dumps({"status":"ok"})
+                response = json.dumps({"status" : ok, "args" : {"free_space" : 1337}})
             # if cridentials are not valid - send notok
             else:
-                response = json.dumps({"status":"notok"})
+                response = json.dumps({"status" : notok})
                 
         elif msg["action"] == "new_user":
-            # if cridentials are valid then let user in
+            # if cridentials are valid then create new user
             if msg["args"]["login"] != "Dmmc":
-                response = json.dumps({"status":"ok"})
-            # if cridentials are not valid - send notok
+                # here you initialize the FS for new user and return size
+                response = json.dumps({"status" : ok, "args" : {"free_space" : 1338}})
+            # if cridentials are not valid - send notok >:)
             else:
-                response = json.dumps({"status":"notok"})
+                response = json.dumps({"status" : notok})
                 
         else:
-            response = json.dumps({"status":"notok"})
+            response = json.dumps({"status" : notok})
         
         self.send_response(200)
         self.end_headers()
