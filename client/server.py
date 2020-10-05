@@ -17,18 +17,27 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
         content_length = int(self.headers['content-length'])
         content = self.rfile.read(content_length)
         
-        
         msg = json.loads(json.loads(content.decode()))
         print(type(msg), msg)
         
         if msg["action"] == "auth":
+            # if cridentials are valid then let user in
             if msg["args"]["login"] == "Dmmc":
                 response = json.dumps({"status":"ok"})
+            # if cridentials are not valid - send notok
             else:
-                response = json.dumps({"status":"invalid user"})
+                response = json.dumps({"status":"notok"})
+                
+        elif msg["action"] == "new_user":
+            # if cridentials are valid then let user in
+            if msg["args"]["login"] != "Dmmc":
+                response = json.dumps({"status":"ok"})
+            # if cridentials are not valid - send notok
+            else:
+                response = json.dumps({"status":"notok"})
+                
         else:
-            response = json.dumps({"status":"unknown command"})
-        
+            response = json.dumps({"status":"notok"})
         
         self.send_response(200)
         self.end_headers()
