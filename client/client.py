@@ -9,7 +9,6 @@ ERROR_DEF = ""
 
 CUR_DIR = "/root"
 CUR_USER = "PUTIN"
-CUR_SPACE = 141414
 
 app = Flask(__name__)
 
@@ -19,7 +18,7 @@ def index():
 
 @app.route("/login", methods = ["POST", "GET"])
 def login():
-    global CUR_DIR, CUR_USER, CUR_SPACE
+    global CUR_DIR, CUR_USER
     
     CUR_USER = request.form.getlist('login')[0]
     password = request.form.getlist('password')[0]
@@ -31,11 +30,11 @@ def login():
     response = requests.get("http://0.0.0.0:8080", json = msg).json()
     
     if response["status"] == ok:
-        CUR_SPACE = response["args"]["free_space"]
+        free_space = response["args"]["free_space"]
         CUR_DIR = response["args"]["cur_dir"]
         return render_template("main.html",
                                name = CUR_USER,
-                               free_space = CUR_SPACE,
+                               free_space = free_space,
                                cur_dir = CUR_DIR)
     elif response["status"] == notok:
         return render_template("failed_login.html",
@@ -46,7 +45,7 @@ def login():
     
 @app.route("/new_user", methods = ["POST", "GET"])
 def new_user():
-    global CUR_DIR, CUR_USER, CUR_SPACE
+    global CUR_DIR, CUR_USER
     
     CUR_USER = request.form.getlist('login')[0]
     password = request.form.getlist('password')[0]
@@ -58,10 +57,10 @@ def new_user():
     response = requests.get("http://0.0.0.0:8080", json = msg).json()
     
     if response["status"] == ok:
-        CUR_SPACE = response["args"]["free_space"]
+        free_space = response["args"]["free_space"]
         CUR_DIR = response["args"]["cur_dir"]
         return render_template("main.html", name = CUR_USER,
-                               free_space = CUR_SPACE,
+                               free_space = free_space,
                                cur_dir = CUR_DIR)
     elif response["status"] == notok:
         return render_template("failed_login.html",
@@ -72,7 +71,7 @@ def new_user():
     
 @app.route("/read_dir", methods = ["POST", "GET"])
 def read_dir():
-    global CUR_DIR, CUR_USER, CUR_SPACE
+    global CUR_DIR, CUR_USER
     
     target_dir = request.form.getlist('target_dir')[0]
     
@@ -84,12 +83,10 @@ def read_dir():
     
     if response["status"] == ok:
         return render_template("main.html", name = CUR_USER,
-                               free_space = CUR_SPACE,
                                cur_dir = CUR_DIR,
                                read_dir_output = response["args"]["dirs"])
     elif response["status"] == notok:
         return render_template("main.html", name = CUR_USER,
-                               free_space = CUR_SPACE,
                                cur_dir = CUR_DIR,
                                read_dir_error = response["args"]["error"])
     else:

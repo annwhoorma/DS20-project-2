@@ -10,7 +10,9 @@
     
         <h2>Hi, {{name}}! Welcome to DFSARA!</h2>
     
-        <p>Free space: <b>{{free_space}}</b> bytes</p>
+        {% if free_space%}
+            <p>Free space: <b>{{free_space}}</b> bytes</p>
+        {% endif%}
         
         <p>Current directory: <b>{{cur_dir}}</b></p>
         
@@ -24,12 +26,12 @@
         {{read_dir_error}}
         
         {% for dict in read_dir_output %}
-        {% if dict["type"] == "file"%}
-            <p>{{dict["name"]}} <font color="green">{{dict["type"]}}</font></p>
-        {% endif%}
-        {% if dict["type"] == "dir"%}
-            <p>{{dict["name"]}} <font color="blue">{{dict["type"]}}</font></p>
-        {% endif%}
+            {% if dict["type"] == "file"%}
+                <p>{{dict["name"]}} <font color="green">{{dict["type"]}}</font></p>
+            {% endif%}
+            {% if dict["type"] == "dir"%}
+                <p>{{dict["name"]}} <font color="blue">{{dict["type"]}}</font></p>
+            {% endif%}
         {% endfor %}
     
     </body>
