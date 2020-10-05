@@ -22,7 +22,11 @@ def login():
     
     if response["status"] == ok:
         free_space = response["args"]["free_space"]
-        return render_template("main.html", name = login, free_space = free_space)
+        cur_dir = response["args"]["cur_dir"]
+        return render_template("main.html",
+                               name = login,
+                               free_space = free_space,
+                               cur_dir = cur_dir)
     elif response["status"] == notok:
         return render_template("failed_login.html",
                                message = "Please go back and try again!",
@@ -41,7 +45,10 @@ def new_user():
     
     if response["status"] == ok:
         free_space = response["args"]["free_space"]
-        return render_template("main.html", name = login, free_space = free_space)
+        cur_dir = response["args"]["cur_dir"]
+        return render_template("main.html", name = login,
+                               free_space = free_space,
+                               cur_dir = cur_dir)
     elif response["status"] == notok:
         return render_template("failed_login.html",
                                message = "Such user already exists!",

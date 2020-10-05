@@ -7,6 +7,13 @@ notok = "notok"
 
 PORT = 8080
 
+def for_main():
+    return json.dumps({"status" : ok,
+                       "args" : {"free_space" : 1337,
+                                 "cur_dir" : "/root/jonata"}})
+def no():
+    return json.dumps({"status" : notok})
+
 class fake_namenode(http.server.BaseHTTPRequestHandler):  
     def _set_headers(self):
         self.send_response(200)
@@ -26,22 +33,22 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
         if msg["action"] == "auth":
             # if cridentials are valid then let user in
             if msg["args"]["login"] == "Dmmc":
-                response = json.dumps({"status" : ok, "args" : {"free_space" : 1337}})
+                response = for_main()
             # if cridentials are not valid - send notok
             else:
-                response = json.dumps({"status" : notok})
+                response = no()
                 
         elif msg["action"] == "new_user":
             # if cridentials are valid then create new user
             if msg["args"]["login"] != "Dmmc":
                 # here you initialize the FS for new user and return size
-                response = json.dumps({"status" : ok, "args" : {"free_space" : 1338}})
+                response = for_main()
             # if cridentials are not valid - send notok >:)
             else:
-                response = json.dumps({"status" : notok})
+                response = no()
                 
         else:
-            response = json.dumps({"status" : notok})
+            response = no()
         
         self.send_response(200)
         self.end_headers()
