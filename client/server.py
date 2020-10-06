@@ -14,7 +14,7 @@ def for_main():
                                  "error" : ""}})
 def no():
     return json.dumps({"status" : notok,
-                       "error" : ""})
+                       "args": {"error" : ""}})
 
 def read_dir():
     return json.dumps({"status" : ok,
@@ -23,6 +23,18 @@ def read_dir():
                                            { "name" : "meme.png", "type" : "file"},
                                            { "name" : "video.mp4", "type" : "file"}],
                                  "error" : ""}})
+
+def open_dir():
+    return json.dumps({"status" : ok,
+                       "args": {"error" : ""}})
+    
+def make_dir():
+    return json.dumps({"status" : notok,
+                       "args": {"error" : "Such folder doesnot exist"}})
+    
+def del_dir():
+    return json.dumps({"status" : notok,
+                       "args": {"error" : "Suck folder doesnot exist"}})
 
 class fake_namenode(http.server.BaseHTTPRequestHandler):  
     def _set_headers(self):
@@ -58,8 +70,20 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
                 response = no()
                 
         elif msg["action"] == "read_dir":
-            # changing directiry here
+            # listing directory content here
             response = read_dir()
+            
+        elif msg["action"] == "open_dir":
+            # checkign if such directory exist so user can go into it
+            response = open_dir()
+            
+        elif msg["action"] == "make_dir":
+            # Checking if we can create the directory
+            response = make_dir()
+            
+        elif msg["action"] == "del_dir":
+            # Checking if target folder exists
+            response = del_dir()
             
         else:
             response = no()

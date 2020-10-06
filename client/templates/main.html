@@ -9,7 +9,9 @@
     <body>
     
         <h2>Hi, {{name}}! Welcome to DFSARA!</h2>
-    
+        
+        <!-- General information bout user and file system -->
+     
         {% if free_space%}
             <p>Free space: <b>{{free_space}}</b> bytes</p>
         {% endif%}
@@ -17,8 +19,19 @@
         <p>Current directory: <b>{{cur_dir}}</b></p>
         
         
+         <!-- ACtions with files -->
+        
+        <h4>Actions with files:</h4>       
+        
+        
+        
+        <!-- ACtions with directories -->
+        
+        <h4>Actions with directories:</h4>
+        
+        <!-- List elements in the directory -->
+        
         <form action=read_dir method="POST">
-            Path to the directory:
             <input type="text" id="target_dir" name="target_dir">
             <input type="submit" value="List content of directory">
         </form>
@@ -33,6 +46,35 @@
                 <p>{{dict["name"]}} <font color="blue">{{dict["type"]}}</font></p>
             {% endif%}
         {% endfor %}
+        
+        <!-- Change the directory -->
+        
+        <form action=open_dir method="POST">
+            <input type="text" id="target_dir" name="target_dir">
+            <input type="submit" value="Open directory">
+        </form>
+        
+        {{open_dir_error}}
+        
+        <!-- Create the directory -->
+        
+        <form action=make_dir method="POST">
+            <input type="text" id="new_dir" name="new_dir">
+            <input type="submit" value="Create directory">
+        </form>
+        
+        {{make_dir_error}}
+        
+        <!-- Delete the directory -->
+        
+        <form action=del_dir method="POST">
+            <input type="text" id="del_dir" name="del_dir">
+            <input type="submit" value="Delete directory">
+        </form>
+        
+        {{del_dir_error}}
+        
+        
     
     </body>
 

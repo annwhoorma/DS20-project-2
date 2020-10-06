@@ -92,7 +92,72 @@ def read_dir():
     else:
         return render_template("error.html", response = response)  
     
+@app.route("/open_dir", methods = ["POST", "GET"])
+def open_dir():
+    global CUR_DIR, CUR_USER
     
-
+    target_dir = request.form.getlist('target_dir')[0]
+    
+    msg = json.dumps({"action" : "open_dir",
+                      "args" : {"cur_dir" : CUR_DIR,
+                                "target_dir" : target_dir}})
+    
+    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    
+    if response["status"] == ok:
+        CUR_DIR = target_dir
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR)
+    elif response["status"] == notok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR,
+                               open_dir_error = response["args"]["error"])
+    else:
+        return render_template("error.html", response = response)  
+    
+@app.route("/make_dir", methods = ["POST", "GET"])
+def make_dir():
+    global CUR_DIR, CUR_USER
+    
+    new_dir = request.form.getlist('new_dir')[0]
+    
+    msg = json.dumps({"action" : "make_dir",
+                      "args" : {"cur_dir" : CUR_DIR,
+                                "new_dir" : new_dir}})
+    
+    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    
+    if response["status"] == ok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR)
+    elif response["status"] == notok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR,
+                               make_dir_error = response["args"]["error"])
+    else:
+        return render_template("error.html", response = response)  
+    
+@app.route("/del_dir", methods = ["POST", "GET"])
+def del_dir():
+    global CUR_DIR, CUR_USER
+    
+    del_dir = request.form.getlist('del_dir')[0]
+    
+    msg = json.dumps({"action" : "make_dir",
+                      "args" : {"cur_dir" : CUR_DIR,
+                                "del_dir" : del_dir}})
+    
+    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    
+    if response["status"] == ok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR)
+    elif response["status"] == notok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR,
+                               del_dir_error = response["args"]["error"])
+    else:
+        return render_template("error.html", response = response)  
+    
 if __name__ == "__main__":
     app.run(host = "0.0.0.0", port = 1234)
