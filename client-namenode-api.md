@@ -236,7 +236,7 @@
 # delete directory
 # 		from client
 {
-    "action" : "make_dir",
+    "action" : "del_dir",
     "args" : {
         "cur_dir" : cur_dir,
         "del_dir" : del_dir
