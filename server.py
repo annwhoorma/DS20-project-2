@@ -11,6 +11,8 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 # testing - curl -X GET -d
 # '{"command": "file_delete", "args": {"user": "/Users/admin/Desktop/ds/", "path": "test.txt"}}'
 # localhost:1337
+node_ip = requests.get('https://api.ipify.org').text
+nameserver_ip = os.environ.get('NAMENODE')
 
 HTTP_PORT = 1337
 FTP_PORT = 7331
@@ -32,13 +34,16 @@ def json_read(message):
 ########### functions for external commands ###########
 def init_user(message):
     root = message["args"]["user"]
+    available_size = subprocess.check_output("df -Ph . | tail -1 | awk '{print $4}'", shell=True)
     try:
         os.mkdir('{}'.format(root))
         res = {"status": "OK", "message": "Root directory successfully initialized"}
     except FileExistsError:
         shutil.rmtree('{}'.format(root), ignore_errors=True)
         os.mkdir('{}'.format(root))
-        res = {"status": "OK", "message": "Root directory was reinitialized and cleaned"}
+        res = {"status": "OK",
+        "message": "Root directory was reinitialized and cleaned",
+         "size": "{}".format(available_size.decode("utf-8").strip())}
     return json.dumps(res)
 
 def create_file(message):
@@ -95,7 +100,7 @@ def info_file(message):
 
         res = {"status": "OK", "message": "File info retrieved successfully:",
                 "args": {"size": "{}".format(size), "file_status": "{}".format(status),
-                "i-node": "i_node_name", "path": "{}".format(local_path)}}
+                "i-node": "{}".format(i_node_name), "path": "{}".format(local_path)}}
     else:
         res = {"status": "Failed", "message": "File info retrieval did not succeed - no such file."}
     return json.dumps(res)
