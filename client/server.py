@@ -39,6 +39,26 @@ def del_dir():
 def create_file():
     return json.dumps({"status" : notok,
                        "args": {"error" : "Not enough space for the file!"}})
+    
+def delete_file():
+    return json.dumps({"status" : ok,
+                       "args": {"error" : ""}})
+    
+def info_file():
+    return json.dumps({"status" : ok,
+                       "args" : {"size" : 1337,
+                                 "node_id" : 2,
+                                 "modified" : "12.12.12",
+                                 "accessed" : "11.11.11",
+                                 "error" : ""}})
+    
+def copy_file():
+    return json.dumps({"status" : notok,
+                       "args": {"error" : "No such file!"}})
+    
+def move_file():
+    return json.dumps({"status" : ok,
+                       "args": {"error" : ""}})
 
 class fake_namenode(http.server.BaseHTTPRequestHandler):  
     def _set_headers(self):
@@ -90,8 +110,24 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
             response = del_dir()
 
         elif msg["action"] == "create_file":
-            # Checking of we can create such a file
+            # Checking if we can create such a file
             response = create_file()
+            
+        elif msg["action"] == "delete_file":
+            # Checking if we can create such a file
+            response = delete_file()
+            
+        elif msg["action"] == "info_file":
+            # Checking if we can get info about a file
+            response = info_file()
+            
+        elif msg["action"] == "copy_file":
+            # Checking if we can successfully copy the file into destination directory
+            response = copy_file()
+            
+        elif msg["action"] == "move_file":
+            # Checking if we can successfully copy the file into destination directory
+            response = move_file()
             
         else:
             response = no()

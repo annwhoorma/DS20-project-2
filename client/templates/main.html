@@ -29,7 +29,59 @@
             <input type="submit" value="Create file">
         </form> 
         
-        {{create_file_error}}      
+        <font color="red">{{create_file_error}}</font>      
+        
+         <!-- Delete the file -->
+        
+        <form action=delete_file method="POST">
+            <input type="text" id="filename" name="filename">
+            <input type="submit" value="Delete file">
+        </form> 
+        
+        <font color="red">{{delete_file_error}}</font>    
+        
+         <!-- Information about the file -->
+        
+        <form action=info_file method="POST">
+            <input type="text" id="filename" name="filename">
+            <input type="submit" value="Get information about file">
+        </form> 
+        
+        <font color="red">{{info_file_error}}</font>    
+         
+        {% for key in info_file_output %}
+            {% if key != "error"%}
+                <p><font color="blue">{{key}}</font> {{info_file_output[key]}}</p>
+            {% endif %}
+        {% endfor %}
+        
+         <!-- Copy the file -->
+        
+        <form action=copy_file method="POST">
+            <input type="text" id="dest_dir" name="dest_dir">
+            <input type="text" id="filename" name="filename"><br>
+            <input type="submit" value="Copy file">
+        </form> 
+        
+        <font color="red">{{copy_file_error}}</font>   
+        
+         <!-- Move the file -->
+        
+        <form action=move_file method="POST">
+            <input type="text" id="dest_dir" name="dest_dir">
+            <input type="text" id="filename" name="filename"><br>
+            <input type="submit" value="Move file">
+        </form> 
+        
+        <font color="red">{{move_file_error}}</font>   
+         
+         
+         
+         
+         
+         
+         
+         
          
         <!-- ACtions with directories -->
         
@@ -42,7 +94,7 @@
             <input type="submit" value="Open directory">
         </form>
         
-        {{open_dir_error}}
+        <font color="red">{{open_dir_error}}</font>
         
         <!-- List elements in the directory -->
         
@@ -51,15 +103,15 @@
             <input type="submit" value="List content of directory">
         </form>
         
-        {{read_dir_error}}
+        <font color="red">{{read_dir_error}}</font>
         
         {% for dict in read_dir_output %}
             {% if dict["type"] == "file"%}
                 <p>{{dict["name"]}} <font color="green">{{dict["type"]}}</font></p>
-            {% endif%}
+            {% endif %}
             {% if dict["type"] == "dir"%}
                 <p>{{dict["name"]}} <font color="blue">{{dict["type"]}}</font></p>
-            {% endif%}
+            {% endif %}
         {% endfor %}
         
         <!-- Create the directory -->
@@ -69,7 +121,7 @@
             <input type="submit" value="Create directory">
         </form>
         
-        {{make_dir_error}}
+        <font color="red">{{make_dir_error}}</font>
         
         <!-- Delete the directory -->
         
@@ -78,7 +130,7 @@
             <input type="submit" value="Delete directory">
         </form>
         
-        {{del_dir_error}}
+        <font color="red">{{del_dir_error}}</font>
     
     </body>
 

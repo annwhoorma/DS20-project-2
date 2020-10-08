@@ -181,5 +181,98 @@ def create_file():
     else:
         return render_template("error.html", response = response)  
     
+@app.route("/delete_file", methods = ["POST", "GET"])
+def delete_file():
+    global CUR_DIR, CUR_USER
+    
+    filename = request.form.getlist('filename')[0]
+    
+    msg = json.dumps({"action" : "delete_file",
+                      "args" : {"cur_dir" : CUR_DIR,
+                                "filename" : filename}})
+    
+    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    
+    if response["status"] == ok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR)
+    elif response["status"] == notok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR,
+                               delete_file_error = response["args"]["error"])
+    else:
+        return render_template("error.html", response = response)  
+    
+@app.route("/info_file", methods = ["POST", "GET"])
+def info_file():
+    global CUR_DIR, CUR_USER
+    
+    filename = request.form.getlist('filename')[0]
+    
+    msg = json.dumps({"action" : "info_file",
+                      "args" : {"cur_dir" : CUR_DIR,
+                                "filename" : filename}})
+    
+    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    
+    if response["status"] == ok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR,
+                               info_file_output = response["args"])
+    elif response["status"] == notok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR,
+                               info_file_error = response["args"]["error"])
+    else:
+        return render_template("error.html", response = response)  
+    
+@app.route("/copy_file", methods = ["POST", "GET"])
+def copy_file():
+    global CUR_DIR, CUR_USER
+    
+    filename = request.form.getlist('filename')[0]
+    dest_dir = request.form.getlist('dest_dir')[0]
+    
+    msg = json.dumps({"action" : "copy_file",
+                      "args" : {"cur_dir" : CUR_DIR,
+                                "filename" : filename,
+                                "dest_dir" : dest_dir}})
+    
+    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    
+    if response["status"] == ok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR)
+    elif response["status"] == notok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR,
+                               copy_file_error = response["args"]["error"])
+    else:
+        return render_template("error.html", response = response)  
+    
+@app.route("/move_file", methods = ["POST", "GET"])
+def move_file():
+    global CUR_DIR, CUR_USER
+    
+    filename = request.form.getlist('filename')[0]
+    dest_dir = request.form.getlist('dest_dir')[0]
+    
+    msg = json.dumps({"action" : "move_file",
+                      "args" : {"cur_dir" : CUR_DIR,
+                                "filename" : filename,
+                                "dest_dir" : dest_dir}})
+    
+    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    
+    if response["status"] == ok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR)
+    elif response["status"] == notok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR,
+                               copy_file_error = response["args"]["error"])
+    else:
+        return render_template("error.html", response = response)  
+    
 if __name__ == "__main__":
     app.run(host = "0.0.0.0", port = 1234)
