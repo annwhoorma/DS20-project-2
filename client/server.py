@@ -35,6 +35,10 @@ def make_dir():
 def del_dir():
     return json.dumps({"status" : notok,
                        "args": {"error" : "Suck folder doesnot exist"}})
+    
+def create_file():
+    return json.dumps({"status" : notok,
+                       "args": {"error" : "Not enough space for the file!"}})
 
 class fake_namenode(http.server.BaseHTTPRequestHandler):  
     def _set_headers(self):
@@ -84,6 +88,10 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
         elif msg["action"] == "del_dir":
             # Checking if target folder exists
             response = del_dir()
+
+        elif msg["action"] == "create_file":
+            # Checking of we can create such a file
+            response = create_file()
             
         else:
             response = no()
@@ -91,8 +99,6 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(response.encode())
-        
-        
         
 with socketserver.TCPServer(("", PORT), fake_namenode) as httpd:
     print("Just another not suspicious fake namenode at the port: ", PORT)

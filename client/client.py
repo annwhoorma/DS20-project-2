@@ -159,5 +159,27 @@ def del_dir():
     else:
         return render_template("error.html", response = response)  
     
+@app.route("/create_file", methods = ["POST", "GET"])
+def create_file():
+    global CUR_DIR, CUR_USER
+    
+    filename = request.form.getlist('filename')[0]
+    
+    msg = json.dumps({"action" : "create_file",
+                      "args" : {"cur_dir" : CUR_DIR,
+                                "filename" : filename}})
+    
+    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    
+    if response["status"] == ok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR)
+    elif response["status"] == notok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR,
+                               create_file_error = response["args"]["error"])
+    else:
+        return render_template("error.html", response = response)  
+    
 if __name__ == "__main__":
     app.run(host = "0.0.0.0", port = 1234)
