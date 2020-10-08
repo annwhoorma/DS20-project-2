@@ -5,17 +5,87 @@ import shutil
 import socket
 from multiprocessing import Process
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+import time
 
 # tudu - tokenizer for paths, test info in linux OS, agreement on naming in JSONs commands
 
 # testing - curl -X GET -d
 # '{"command": "file_delete", "args": {"user": "/Users/admin/Desktop/ds/", "path": "test.txt"}}'
 # localhost:1337
-node_ip = requests.get('https://api.ipify.org').text
-nameserver_ip = os.environ.get('NAMENODE')
 
+MASTER_IP = ''
+NODE_IP = requests.get('https://api.ipify.org').text
+NAMESERVER_IP = os.environ.get('NAMENODE')
+NAMESERVER_PORT = 1338
+NAME_SERVER_ADDRESS = 'http://' + NAMESERVER_IP + ':' + str(NAMESERVER_PORT)
+SLAVES = []
 HTTP_PORT = 1337
 FTP_PORT = 7331
+
+TIME_STAMP = 0
+
+########### functions for nodes' communication ###########
+def init_node():
+    global MASTER_IP
+    message = {"command": "init_node",
+    "args": {"node": NODE_IP}}
+
+    response = json.loads(requests.get(NAME_SERVER_ADDRESS, json=message).text)
+    # format to response:
+        # status: OK, Failed
+        # args:
+            # master: "MASTER_IP"
+            # node_status: new, old
+    if response['status'] == "OK":
+        MASTER_IP = response["args"]["master"]
+        init_fs(response['args']['node_status'])
+    else:
+        print("-----------Retrying to initialize node-----------"")
+        init_node()
+        # ? should I do it like this?
+
+def init_fs(node_status):
+    if node_status == 'new':
+        # requesting fs
+
+        pass
+    else:
+        os.system("rm -r */")
+        pass
+
+def share_slaves():
+    global SLAVES
+    message = {"command": "get_slaves", "args": {"slaves": SLAVES}}
+    try:
+        requests.get(NAME_SERVER_ADDRESS, json=message, timeout=1)
+    except requests.exceptions.ReadTimeout:
+        pass
+    except requests.exceptions.ConnectionError:
+        pass
+
+def get_slaves():
+    global SLAVES
+    message = {"command": "send_slaves"}
+    response = json.loads(requests.get(NAME_SERVER_ADDRESS, json=message).text)
+    SLAVES = response["args"]["slaves"]
+
+def update_time_stamp():
+    global TIME_STAMP
+    TIME_STAMP = time.time()
+
+def slave_fs_distribution(message):
+    for slave in SLAVES:
+        try:
+            slave_address = 'http://' + node + ':' + str(PORT_http)
+            response = json.loads(
+                requests.get(slave_address, json=message, timeout=1).text)
+        except requests.exceptions.ReadTimeout:
+            SLAVES.pop(slave)
+        except requests.exceptions.ConnectionError:
+            SLAVES.pop(slave)
+
+def change_master(message):
 
 ########### inner functions ###########
 def check_path(message):
@@ -166,13 +236,13 @@ def delete_directory(message):
     else:
         if path == "":
             res = {"status": "Failed", "message":
-            "Directory creating did not succeed - cannot delete root directory"}
+            "Directory deleting did not succeed - cannot delete root directory"}
         elif check_path(message):
             shutil.rmtree('{}'.format(local_path), ignore_errors=True)
             res = {"status": "OK", "message": "Required directory was successfelly deleted"}
         else:
             res = {"status": "Failed", "message":
-            "Directory creating did not succeed - no such directory"}
+            "Directory deleting did not succeed - no such directory"}
     return json.dumps(res)
 
 def list_directory(message):
@@ -262,26 +332,46 @@ class Http_handler(BaseHTTPRequestHandler):
 
         if command == "init":
             res = init_user(message)
+            if leader_ip == node_ip:
+                slave_fs_distribution(message)
         elif command == "create_dir":
             res = create_directory(message)
+            if leader_ip == node_ip:
+                slave_fs_distribution(message)
+        elif command == "file_copy":
+            res = copy_file(message)
+            if leader_ip == node_ip:
+                slave_fs_distribution(message)
+        elif command == "file_create":
+            res = create_file(message)
+            if leader_ip == node_ip:
+                slave_fs_distribution(message)
         elif command == "list_dir":
             res = list_directory(message)
         elif command == "delete_dir":
             res = delete_directory(message)
+            if leader_ip == node_ip:
+                slave_fs_distribution(message)
+        elif command == "file_move":
+            res = move_file(message)
+            if leader_ip == node_ip:
+                slave_fs_distribution(message)
+        elif command == "read_file":
+            res = read_file(message)
         elif command == "file_info":
             res = info_file(message)
         elif command == "file_delete":
             res = delete_file(message)
-        elif command == "file_copy":
-            res = copy_file(message)
-        elif command == "file_create":
-            res = create_file(message)
-        elif command == "file_move":
-            res = move_file(message)
-        elif command == "read_file":
-            res = read_file(message)
+            if leader_ip == node_ip:
+                slave_fs_distribution(message)
         elif command == "write_file":
             res = write_file(message)
+        elif command == "<3":
+            update_time_stamp()
+        elif command == "change_master":
+            change_master(message)
+        elif command == "send_fs":
+            data_json = send_fs(message)
         else:
             res = json.dumps({"status": "Failed", "message": "Invalid command"})
 
@@ -289,7 +379,59 @@ class Http_handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(bytes(res, "utf-8"))
 
+########### Classes for HeartBeat functions ###########
+class Master():
+    def __init__(self):
+        thread = threading.Thread(target=self.start, args=())
+        thread.daemon = True
+        thread.start()
+
+    def start(self):
+        while NODE_IP == MASTER_IP:
+            get_slaves()
+            message = {"command": "<3"}
+            try:
+                requests.get(NAME_SERVER_ADDRESS, json=message, timeout=1)
+            except Exception:
+                pass
+            for slave in SLAVES:
+                try:
+                    response = json.loads(requests.get('http://' + slave + ':' + str(HTTP_PORT), json=message, timeout=1).text)
+                except requests.exceptions.ReadTimeout:
+                    SLAVES.pop(slave)
+                except requests.exceptions.ConnectionError:
+                    SLAVES.pop(slave)
+            send_slaves()
+
+        # in case node changed the status, it should be reload as a slave
+        new_slave = Slave()
+        init_node()
+
+
+class Slave():
+    def __init__(self):
+        hread = threading.Thread(target=self.start, args=())
+        thread.daemon = True
+        thread.start()
+    def start(self):
+        while True:
+            if time.time() - TIME_STAMP > 7:
+                message  = {"command": "change_master", "args": {"node_ip": NODE_IP}}
+                response = json.loads(NAME_SERVER_ADDRESS, json=message, timeout=1).text)
+                if response['args']['master'] == NODE_IP:
+                    MASTER_IP = NODE_IP
+                    get_slaves()
+                    for slave in SLAVES:
+                        response = json.loads('http://' + slave + ':' + str(HTTP_PORT), json=message, timeout=1).text)
+                    new_master = Master()
+                    break
+
 if __name__ == "__main__":
     server_address = ('', HTTP_PORT)
     httpd = HTTPServer(server_address, Http_handler)
+    init_node()
+    if NODE_IP == MASTER_IP:
+        master = Master()
+    else:
+        slave = Slave()
     httpd.serve_forever()
