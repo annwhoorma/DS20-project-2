@@ -10,12 +10,19 @@
 }
 ```
 
+## REPLY ##
+```json
+{
+    "status": "ok"
+    "message" : "can be an error"
+}
+```
+
 ```json
 {
     "command": "init",
     "args": {
-        "user": "/anya", 
-    	"path": "/folder2/folder3"
+        "user": "/anya"
     }
 }
 ```
@@ -42,7 +49,7 @@
     "command": "file_info",
     "args": {
         "user": "/anya",
-        "path": "/folder1/folder2"
+        "path": "/folder1/folder2/file"
     }
 }
 ```
@@ -57,20 +64,10 @@
 ```
 ```json
 {
-    "command": "file_copy",
-    "args": {
-        "user": "/anya",
-        "src": "/folder1/folder2/file",
-        "dst": "/folder1/folder2/"
-    }
-}
-```
-```json
-{
     "command": "file_create",
     "args": {
         "user": "/anya"
-        "path": "/folder1/folder2"
+        "path": "/folder1/folder2/file"
     }
 }
 ```
@@ -98,8 +95,7 @@
     "command": "write_file",
     "args": {
         "user": "/anya",
-        "path": "/folder1/folder2/file",
-        "message": "msg"
+        "path": "/folder1/folder2/file"
     }
 }
 ```

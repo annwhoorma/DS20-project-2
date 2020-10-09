@@ -42,15 +42,15 @@ class Namenode:
             "del_dir": self.del_dir
         }
     
-    def perform_action(self, action, args):
+    def perform_action_database(self, action, args):
         if args.cur_dir and not args.cur_dir[0] == '/':
             return 1, throw_error("NO_SUCH_DIR")
-        res = self.funcs[action](args)
-        if res == 0:
-            return "ok", {}
-        else:
-            error = res
-            return error
+        res, arg = self.funcs[action](args)
+        return res, arg
+
+    def perform_action_datanode(self, action, args):
+        command, fields = preprocessing(action, args)
+        
 
     def add_user(self, args):
         username = args.login

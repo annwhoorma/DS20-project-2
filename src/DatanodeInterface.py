@@ -1,3 +1,9 @@
+from flask import jsonify
+import requests
+
+IP = 'localhost'
+PORT = '1234'
+
 class DatanodeInterface:
     def __init__(self, namenode):
         self.namenode = namenode
@@ -19,5 +25,5 @@ class DatanodeInterface:
         elif fields['message']:
             args['message'] = fields['message']
 
-        return command, user, args
-        # send request
+        json = jsonify(command=command, user=user, args=args)
+        requests.post(url="http://ip:port".format(ip=IP, port=PORT), json=json)
