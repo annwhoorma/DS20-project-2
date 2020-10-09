@@ -12,8 +12,11 @@ errors = {
     "NO_SUCH_FILE" : "Requested file doesn't exist",
     "EMPTY_USERNAME" : "Empty username is not permitted",
     "EMPTY_DIR_NAME" : "Empty username is not permitted",
-    "EMPTY_FILE_NAME" : "Empty username is not permitted"
-
+    "EMPTY_FILE_NAME" : "Empty username is not permitted",
+    "QUERY_DID_NOT_SUCCEED": "Query did not succeed",
+    "INVALID_REQUEST": "Request is invalid",
+    "DIR_EXISTS": "Directory with such name already exists",
+    "NO_COPY_TO_ANOTHER_DIR": "Sorry, you can not copy to another directory"
 }
 
 def throw_error(code):

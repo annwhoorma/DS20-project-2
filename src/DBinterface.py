@@ -6,10 +6,6 @@ uri = "bolt://localhost:7687"
 username_db = "neo4j"
 password_db = "ohmyg0d"
 
-def print_error(message):
-    print("ERROR: {m}".format(m=message)) if message else print('ERROR')
-    # return None
-
 class DBInterface:
     def __init__(self, namenode):
         self.driver = GraphDatabase.driver(uri, auth=(username_db, password_db))
@@ -32,13 +28,6 @@ class DBInterface:
                 """
         self.driver.session().write_transaction(self.submit_query, query2)
 
-    def add_root(self, name):
-        query = """
-                create (root: Dir {name: "/", username: "{name}"})
-                """.format(username=name)
-
-        self.driver.session().write_transaction(self.submit_query, query)
-
     def is_fullpath(self, path):
         return True if path[0] == '/' else False
 
@@ -58,7 +47,7 @@ class DBInterface:
         if not self.namenode.user_exists(fullpath[0]):
             return 1, throw_error("NO_SUCH_USER")
 
-        return fullpath
+        return 0, fullpath
 
     def get_fullpath_pairs(self, fullpath):
         pairs = []
@@ -80,13 +69,11 @@ class DBInterface:
             # if full path was specified
             result = self.path_exists(fullpath)
             if not result:
-                print_error('path does not exist')
-                return
+                return 1, throw_error("NO_SUCH_DIR")
             
             uuid, label = result[0], result[1]
             if not label == 'Dir':
-                print_error('it is not a folder')
-                return
+                return 1, throw_error("NO_SUCH_DIR")
 
         query = """
                 match(n: Dir)-[:HAS]->(smt) 
@@ -96,7 +83,7 @@ class DBInterface:
 
         # result will contains entries of type: [file/dir-name, label: Dir or File]
         result = self.driver.session().write_transaction(self.submit_query, query)
-        return result
+        return 0, result
 
     def path_exists(self, fullpath, required_label=""):
         folders_pairs = self.get_fullpath_pairs(fullpath)
@@ -123,20 +110,39 @@ class DBInterface:
             return uuid, label
         if continue_flag and not required_label:
             return uuid, label
-        return False
+        return 1, throw_error("PATH")
 
     def is_name_unique(self, dir_uuid, new_name):
-        files = self.list_all(uuid=dir_uuid)
+        res, files = self.list_all(uuid=dir_uuid)
         for [name, label] in files:
             if name == new_name:
                 return False
         return True
 
+    def are_two_fullpaths_same(self, fullpath1, fullpath2):
+        if not len(fullpath1) == len(fullpath2) or not fullpath1[len(fullpath1)] == fullpath2[len(fullpath2)]:
+            return False
+        for depth in len(fullpath1):
+            if not fullpath1[depth] == fullpath2[depth]:
+                return False
+        return True
+
+
+    def add_root(self, name):
+        query = """
+                create (root: Dir {name: "/", username: "{name}"})
+                """.format(name=name)
+
+        result = self.driver.session().write_transaction(self.submit_query, query)
+        return (0, "") if result == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
 
     def create_file(self, name, cur_dir, path="", uuid=""):
         # uuid is uuid of the directory 
         if not uuid and path:
-            fullpath = self.get_fullpath_as_list(cur_dir, path)
+            res, fullpath = self.get_fullpath_as_list(cur_dir, path)
+            if not res == 0:
+                # fullpath will contain an error in this case
+                return 1, fullpath
             result = self.path_exists(fullpath)
             if not result:
                 return 1, throw_error("NO_SUCH_DIR")
@@ -153,15 +159,18 @@ class DBInterface:
                 create (child: File {name: "{filename}"})
                 create (n)-[:HAS]->(child)
                 """.format(uuid=uuid, filename=name)
-        self.driver.session().write_transaction(self.submit_query, query)
-        return 0, fullpath
+        result = self.driver.session().write_transaction(self.submit_query, query)
+        return (0, fullpath) if result == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
 
     def delete_file(self, cur_dir, path="", uuid=""):
         if not path and not uuid:
             return 1, throw_error("DIR_NOT_SPECIFIED")
 
         if not uuid and path:
-            fullpath = self.get_fullpath_as_list(cur_dir, path)
+            res, fullpath = self.get_fullpath_as_list(cur_dir, path)
+            if not res == 0:
+                # fullpath will contain an error in this case
+                return 1, fullpath
             result = self.path_exists(fullpath)
             if not result:
                 return 1, throw_error("NO_SUCH_DIR")
@@ -175,12 +184,18 @@ class DBInterface:
                 where file.uuid = {uuid}
                 detach delete (file)
                 """.format(uuid=uuid)
-        self.driver.session().write_transaction(self.submit_query, query)
-        return 0, fullpath
+        result = self.driver.session().write_transaction(self.submit_query, query)
+        return (0, fullpath) if result == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
 
     def copy_file(self, cur_dir, path, copy_to_path, delete_original=False):
-        fullpath1 = self.get_fullpath_as_list(cur_dir, path)
-        fullpath2 = self.get_fullpath_as_list(cur_dir, copy_to_path)
+        res1, fullpath1 = self.get_fullpath_as_list(cur_dir, path)
+        res2, fullpath2 = self.get_fullpath_as_list(cur_dir, copy_to_path)
+        # not sufficient check
+        if not self.are_two_fullpaths_same(fullpath1, fullpath2):
+            return 1, throw_error("NO_COPY_TO_ANOTHER_DIR")
+        if not res1 == 0 or not res2 == 0:
+            # fullpath1 will contain an error in this case
+            return 1, throw_error("NO_SUCH_DIR")
         result1 = self.path_exists(fullpath1)
         result2 = self.path_exists(fullpath2)
         if not result1 or not result2:
@@ -195,8 +210,9 @@ class DBInterface:
             return 1, throw_error("NO_SUCH_FILE")
         
         filename = fullpath1[len(fullpath1)-1]
-        if not self.is_name_unique(uuid2, filename):
-            return 1, throw_error("NAME_EXISTS")
+        ''' commented because datanodes-side will handle the naming'''
+        # if not self.is_name_unique(uuid2, filename):
+        #     return 1, throw_error("NAME_EXISTS")
 
         self.create_file(filename, cur_dir, uuid=uuid2)
         if delete_original:
@@ -207,7 +223,10 @@ class DBInterface:
         return self.copy_file(cur_dir, path, move_to_path, delete_original=True)
 
     def list_files(self, cur_dir, path):
-        fullpath = self.get_fullpath_as_list(cur_dir, path)
+        res, fullpath = self.get_fullpath_as_list(cur_dir, path)
+        if not res == 0:
+            # fullpath will contain an error in this case
+            return 1, fullpath
         result = self.path_exists(fullpath)
         if not result:
             return 1, throw_error("NO_SUCH_DIR")
@@ -215,25 +234,29 @@ class DBInterface:
         if not label == 'Dir':
             return 1, throw_error("NO_SUCH_DIR")
 
-        files = self.list_all(uuid=uuid)
-        return 0, files
+        res, files = self.list_all(uuid=uuid)
+
+        ret_files = []
+        for file, ty in files:
+            ret_files.append({"name": file, "type": ty})
+        return 0, ret_files
 
     def make_dir(self, cur_dir, path):
         # do you handle existence of chaining dirs?
-        fullpath = self.get_fullpath_as_list(cur_dir, path)
+        res, fullpath = self.get_fullpath_as_list(cur_dir, path)
+        if not res == 0:
+            # fullpath will contain an error in this case
+            return 1, fullpath
         new_dir_name = fullpath.pop(len(fullpath)-1)
         result = self.path_exists(fullpath)
         if not result:
-            print_error('path does not exist')
-            return
+            return 1, throw_error("NO_SUCH_DIR")
         uuid, label = result[0], result[1]
         if not label == 'Dir':
-            print_error("")
-            return
+            return 1, throw_error("INVALID_REQUEST")
 
         if not self.is_name_unique(uuid, new_dir_name):
-            print_error("")
-            return
+            return 1, throw_error("DIR_EXISTS")
         
         query = """
                 match (dir: Dir) where dir.uuid = "{uuid}"
@@ -241,36 +264,27 @@ class DBInterface:
                 create (dir)-[:HAS]->(new_dir)
                 """.format(uuid=uuid, name=new_dir_name)
 
-        self.driver.session().write_transaction(self.submit_query, query)
-        return 0, fullpath
+        result = self.driver.session().write_transaction(self.submit_query, query)
+        return (0, fullpath) if result == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
 
     def delete_dir(self, cur_dir, path):
-        fullpath = self.get_fullpath_as_list(cur_dir, path)
+        res, fullpath = self.get_fullpath_as_list(cur_dir, path)
+        if not res == 0:
+            # fullpath will contain an error in this case
+            return 1, fullpath
         result = self.path_exists(fullpath)
         if not result:
-            print_error('path does not exist')
-            return
+            return 1, throw_error("NO_SUCH_DIR")
         uuid, label = result[0], result[1]
         if not label == 'Dir':
-            print_error("")
-            return
-
-        files = self.list_all(uuid=uuid)
-        permission = False
-        if len(files) > 0:
-            # ask for permission
-            pass
-
-        if not permission:
-            return
-
+            return 1, throw_error("INVALID_REQUEST")
         query = """
                 match (dir: Dir)-[:HAS*0..]->(child) where dir.uuid = "{uuid}"
                 detach delete (child)
                 """.format(uuid=uuid)
 
-        self.driver.session().write_transaction(self.submit_query, query)
-        return 0, fullpath
+        result = self.driver.session().write_transaction(self.submit_query, query)
+        return (0, fullpath) if result == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
 
     def close_connection(self):
         self.driver.close()
