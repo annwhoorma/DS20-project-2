@@ -1,0 +1,14 @@
+version: '3.3'
+services:
+    namenode:
+        build:
+            context: ./
+            dockerfile: Dockerfile-python
+    neo4j-database:
+        build:
+            context: ./
+            dockerfile: Dockerfile-neo4j
+        expose:
+        - "7474"
+        - "7473"
+        - "7687"
