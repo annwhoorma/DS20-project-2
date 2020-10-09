@@ -15,13 +15,13 @@ import time
 # localhost:1337
 
 MASTER_IP = ''
-NODE_IP = requests.get('https://api.ipify.org').text
+NODE_IP = os.environ.get('MY_IP')
 NAMESERVER_IP = os.environ.get('NAMENODE')
-NAMESERVER_PORT = 1338
+NAMESERVER_PORT = 1401
 NAME_SERVER_ADDRESS = 'http://' + NAMESERVER_IP + ':' + str(NAMESERVER_PORT)
 SLAVES = []
-HTTP_PORT = 1337
-FTP_PORT = 7331
+HTTP_PORT = 1400
+FTP_PORT = 1421
 
 TIME_STAMP = 0
 
@@ -47,8 +47,7 @@ def init_node():
 
 def init_fs(node_status):
     if node_status == 'new':
-        # requesting fs
-
+        request_fs()
         pass
     else:
         os.system("rm -r */")
@@ -74,10 +73,10 @@ def update_time_stamp():
     global TIME_STAMP
     TIME_STAMP = time.time()
 
-def slave_fs_distribution(message):
+def slave_command_distribution(message):
     for slave in SLAVES:
         try:
-            slave_address = 'http://' + node + ':' + str(PORT_http)
+            slave_address = 'http://' + slave + ':' + str(HTTP_PORT)
             response = json.loads(
                 requests.get(slave_address, json=message, timeout=1).text)
         except requests.exceptions.ReadTimeout:
@@ -86,6 +85,56 @@ def slave_fs_distribution(message):
             SLAVES.pop(slave)
 
 def change_master(message):
+    global MASTER_IP
+    MASTER_IP = message["args"]["node_ip"]
+
+def request_fs():
+    message = {"command": "send_fs", "args": {"ip": NODE_IP}}
+    master_address = 'http://' + MASTER_IP + ':' + str(PORT_http)
+    response = json.loads(requests.get(master_address, json=message, timeout=0.000001).text)
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    host = ""
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind((host, FTP_PORT))
+    s.listen(5)
+    conn, addr = s.accept()
+    with open('fs.zip', 'wb') as f:
+        while True:
+            data = conn.recv(1024)
+            if not data:
+                break
+
+            f.write(data)
+
+        f.close()
+        conn.close()
+        s.close()
+
+        os.system("unzip bckp.zip")
+        os.system("rm bckp.zip")
+    except requests.exceptions.ConnectionError:
+        pass
+
+
+def send_fs(message):
+    node = message["args"]["ip"]
+    os.system(
+        "zip -r fs.zip $(ls) -x \"storageserver.py\" \"README.md\" \".zip\" \"requirements.txt\" \"Dockerfile\" \"docker-compose.yml\" ")
+    s = socket.socket()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.connect((node, PORT_ftp_send))
+
+    filepath = 'fs.zip'
+    f = open(filepath, 'rb')
+    l = f.read(1024)
+    while (l):
+        s.send(l)
+        l = f.read(1024)
+    f.close()
+    s.close()
+    os.system("rm fs.zip")
+    return json.dumps({"status": "OK"})
 
 ########### inner functions ###########
 def check_path(message):
@@ -107,13 +156,14 @@ def init_user(message):
     available_size = subprocess.check_output("df -Ph . | tail -1 | awk '{print $4}'", shell=True)
     try:
         os.mkdir('{}'.format(root))
-        res = {"status": "OK", "message": "Root directory successfully initialized"}
+        res = {"status": "OK", "message": "Root directory successfully initialized",
+        "size": "{}".format(available_size.decode("utf-8").strip())}
     except FileExistsError:
         shutil.rmtree('{}'.format(root), ignore_errors=True)
         os.mkdir('{}'.format(root))
         res = {"status": "OK",
         "message": "Root directory was reinitialized and cleaned",
-         "size": "{}".format(available_size.decode("utf-8").strip())}
+        "size": "{}".format(available_size.decode("utf-8").strip())}
     return json.dumps(res)
 
 def create_file(message):
@@ -332,38 +382,38 @@ class Http_handler(BaseHTTPRequestHandler):
 
         if command == "init":
             res = init_user(message)
-            if leader_ip == node_ip:
-                slave_fs_distribution(message)
+            if MASTER_IP == NODE_IP:
+                slave_command_distribution(message)
         elif command == "create_dir":
             res = create_directory(message)
-            if leader_ip == node_ip:
-                slave_fs_distribution(message)
+            if MASTER_IP == NODE_IP:
+                slave_command_distribution(message)
         elif command == "file_copy":
             res = copy_file(message)
-            if leader_ip == node_ip:
-                slave_fs_distribution(message)
+            if MASTER_IP == NODE_IP:
+                slave_command_distribution(message)
         elif command == "file_create":
             res = create_file(message)
-            if leader_ip == node_ip:
-                slave_fs_distribution(message)
+            if MASTER_IP == NODE_IP:
+                slave_command_distribution(message)
         elif command == "list_dir":
             res = list_directory(message)
         elif command == "delete_dir":
             res = delete_directory(message)
-            if leader_ip == node_ip:
-                slave_fs_distribution(message)
+            if MASTER_IP == NODE_IP:
+                slave_command_distribution(message)
         elif command == "file_move":
             res = move_file(message)
             if leader_ip == node_ip:
-                slave_fs_distribution(message)
+                slave_command_distribution(message)
         elif command == "read_file":
             res = read_file(message)
         elif command == "file_info":
             res = info_file(message)
         elif command == "file_delete":
             res = delete_file(message)
-            if leader_ip == node_ip:
-                slave_fs_distribution(message)
+            if MASTER_IP == NODE_IP:
+                slave_command_distribution(message)
         elif command == "write_file":
             res = write_file(message)
         elif command == "<3":
@@ -379,7 +429,7 @@ class Http_handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(bytes(res, "utf-8"))
 
-########### Classes for HeartBeat functions ###########
+########### Classes for HeartBeat protocol ###########
 class Master():
     def __init__(self):
         thread = threading.Thread(target=self.start, args=())
@@ -401,7 +451,7 @@ class Master():
                     SLAVES.pop(slave)
                 except requests.exceptions.ConnectionError:
                     SLAVES.pop(slave)
-            send_slaves()
+            share_slaves()
 
         # in case node changed the status, it should be reload as a slave
         new_slave = Slave()
@@ -413,6 +463,7 @@ class Slave():
         hread = threading.Thread(target=self.start, args=())
         thread.daemon = True
         thread.start()
+
     def start(self):
         while True:
             if time.time() - TIME_STAMP > 7:
@@ -427,8 +478,8 @@ class Slave():
                     break
 
 if __name__ == "__main__":
-    server_address = ('', HTTP_PORT)
-    httpd = HTTPServer(server_address, Http_handler)
+    NODE_ADDRESS = ('', HTTP_PORT)
+    httpd = HTTPServer(NODE_ADDRESS, Http_handler)
     init_node()
     if NODE_IP == MASTER_IP:
         master = Master()

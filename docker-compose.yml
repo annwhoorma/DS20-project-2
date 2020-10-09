@@ -1,0 +1,20 @@
+version: "1"
+
+services:
+  storage:
+    image: .
+    build: ./storage
+    environment:
+      name_ip: "nameserver"
+      my_ip: "storage"
+    tty: true
+    ports:
+      - 1400:1400
+      - 1421:1421
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+        delay: 120s
+    depends_on:
+      - nameserver
