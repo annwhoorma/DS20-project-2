@@ -1,14 +1,18 @@
 from flask import Flask, render_template, request
 import json
 import requests
+import socket
 
 ok = "<3"
 notok = "</3"
 
-ERROR_DEF = ""
-
 CUR_DIR = "/root"
 CUR_USER = "PUTIN"
+
+CLIENT_FOLDER = "client_storage"
+BUFF_SIZE = 1024
+
+FTP_PORT = 1338
 
 app = Flask(__name__)
 
@@ -273,6 +277,99 @@ def move_file():
                                copy_file_error = response["args"]["error"])
     else:
         return render_template("error.html", response = response)  
+    
+def read_file_from_server(filename):
+    path = "{}/{}".format(CLIENT_FOLDER, filename)
+    
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+    
+    host = "localhost"
+    
+    s.connect((host, FTP_PORT))
+    
+    f = open(path, 'wb')
+    
+    l = s.recv(BUFF_SIZE)
+    while (l):
+        f.write(l)
+        l = s.recv(BUFF_SIZE)
+    f.close()
+    s.close()        
+        
+@app.route("/read_file", methods = ["POST", "GET"])
+def read_file():
+    global CUR_DIR, CUR_USER
+    
+    filename = request.form.getlist('filename')[0]
+    
+    msg_json = {"action" : "read_file",
+                "args" : {"cur_dir" : CUR_DIR,
+                          "filename" : filename}}
+    
+    msg = json.dumps(msg_json)
+    
+    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    
+    if response["status"] == ok:
+        # recieve the file here
+        read_file_from_server(msg_json["args"]["filename"])
+        
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR)
+    elif response["status"] == notok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR,
+                               read_file_error = response["args"]["error"])
+    else:
+        return render_template("error.html", response = response)  
+    
+    
+def write_file_from_client(filename):
+    path = "{}/{}".format(CLIENT_FOLDER, filename)
+    
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+    
+    host = "localhost"
+    
+    s.connect((host, FTP_PORT))
+    
+    f = open(path, 'rb')
+    
+    l = f.read(BUFF_SIZE)
+    while (l):
+        s.send(l)
+        l = f.read(BUFF_SIZE)
+    f.close()
+    s.close()    
+    
+@app.route("/write_file", methods = ["POST", "GET"])
+def write_file():
+    global CUR_DIR, CUR_USER
+    
+    filename = request.form.getlist('filename')[0]
+    
+    msg_json = {"action" : "write_file",
+                "args" : {"cur_dir" : CUR_DIR,
+                          "filename" : filename}}
+    
+    msg = json.dumps(msg_json)
+    
+    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    
+    if response["status"] == ok:
+        # upload the file here
+        write_file_from_client(msg_json["args"]["filename"])
+        
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR)
+    elif response["status"] == notok:
+        return render_template("main.html", name = CUR_USER,
+                               cur_dir = CUR_DIR,
+                               write_file_error = response["args"]["error"])
+    else:
+        return render_template("error.html", response = response)  
+    
+    
     
 if __name__ == "__main__":
     app.run(host = "0.0.0.0", port = 1234)

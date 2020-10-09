@@ -1,11 +1,18 @@
 import http.server
 import socketserver
 import json
+import os
+import socket
+import threading
 
 ok = "<3"
 notok = "</3"
 
 PORT = 8080
+FTP_PORT = 1338
+BUFF_SIZE = 1024
+
+SERVER_FOLDER = "server_storage"
 
 def for_main():
     return json.dumps({"status" : ok,
@@ -59,6 +66,70 @@ def copy_file():
 def move_file():
     return json.dumps({"status" : ok,
                        "args": {"error" : ""}})
+    
+def send_file_to_client():
+    file = "file.txt"
+    path = "{}/{}".format(SERVER_FOLDER, file)
+    
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
+    host = ""
+    
+    s.bind((host, FTP_PORT))
+    s.listen()
+    conn, addr = s.accept()
+    
+    f = open(path, 'rb')
+    l = f.read(BUFF_SIZE)
+    while (l):
+        conn.send(l)
+        l = f.read(BUFF_SIZE)
+    f.close()
+    conn.close()
+    s.close()
+
+def read_file():
+    file = "file.txt"
+    path = "{}/{}".format(SERVER_FOLDER, file)
+    
+    if os.path.exists(path):
+        res = {"status": ok,
+               "args" : {"error" : ""}}
+    else:
+        res = {"status": notok,
+               "args" : {"error" : "No such file!"}}
+        
+    return json.dumps(res)
+
+def write_file():
+    return json.dumps({"status" : ok,
+                       "args": {"error" : ""}}) 
+            
+def read_file_from_client():
+    file = "uploaded.txt"
+    path = "{}/{}".format(SERVER_FOLDER, file)
+    
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
+    host = ""
+    
+    s.bind((host, FTP_PORT))
+    s.listen()
+    conn, addr = s.accept()
+    
+    f = open(path, 'wb')
+    l = conn.recv(BUFF_SIZE)
+    while (l):
+        f.write(l)
+        l = conn.recv(BUFF_SIZE)
+    f.close()
+    conn.close()
+    s.close()   
+        
+    
+    
 
 class fake_namenode(http.server.BaseHTTPRequestHandler):  
     def _set_headers(self):
@@ -69,7 +140,7 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
     def do_HEAD(self):
         self._set_headers()
         
-    def do_GET(self):
+    def do_GET(self):      
         content_length = int(self.headers['content-length'])
         content = self.rfile.read(content_length)
         
@@ -114,7 +185,7 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
             response = create_file()
             
         elif msg["action"] == "delete_file":
-            # Checking if we can create such a file
+            # Checking if we can delete such a file
             response = delete_file()
             
         elif msg["action"] == "info_file":
@@ -126,12 +197,26 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
             response = copy_file()
             
         elif msg["action"] == "move_file":
-            # Checking if we can successfully copy the file into destination directory
+            # Checking if we can successfully move the file into destination directory
             response = move_file()
+            
+        elif msg["action"] == "read_file":
+            # Checking if such file exists
+            response = read_file()
+            
+            send_file_thread = threading.Thread(target=send_file_to_client, daemon=True)
+            send_file_thread.start()
+            
+        elif msg["action"] == "write_file":
+            # Checking if client can upload such file
+            response = write_file()
+            
+            read_file_thread = threading.Thread(target=read_file_from_client, daemon=True)
+            read_file_thread.start()
             
         else:
             response = no()
-        
+            
         self.send_response(200)
         self.end_headers()
         self.wfile.write(response.encode())

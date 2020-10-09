@@ -29,7 +29,23 @@
             <input type="submit" value="Create file">
         </form> 
         
-        <font color="red">{{create_file_error}}</font>      
+         <!-- Download the file -->
+        
+        <form action=read_file method="POST">
+            <input type="text" id="filename" name="filename">
+            <input type="submit" value="Download file">
+        </form> 
+        
+        <font color="red">{{read_file_error}}</font>      
+        
+         <!-- Upload the file -->
+        
+        <form action=write_file method="POST">
+            <input type="text" id="filename" name="filename">
+            <input type="submit" value="Upload file">
+        </form> 
+        
+        <font color="red">{{write_file_error}}</font>    
         
          <!-- Delete the file -->
         
@@ -58,8 +74,10 @@
          <!-- Copy the file -->
         
         <form action=copy_file method="POST">
-            <input type="text" id="dest_dir" name="dest_dir">
-            <input type="text" id="filename" name="filename"><br>
+            Directory: 
+            <input type="text" id="dest_dir" name="dest_dir"><br>
+            Filename: 
+            <input type="text" id="filename" name="filename">
             <input type="submit" value="Copy file">
         </form> 
         
@@ -68,8 +86,10 @@
          <!-- Move the file -->
         
         <form action=move_file method="POST">
-            <input type="text" id="dest_dir" name="dest_dir">
-            <input type="text" id="filename" name="filename"><br>
+            Directory: 
+            <input type="text" id="dest_dir" name="dest_dir"><br>
+            Filename: 
+            <input type="text" id="filename" name="filename">
             <input type="submit" value="Move file">
         </form> 
         
