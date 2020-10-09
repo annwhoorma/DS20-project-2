@@ -1,2 +1,4 @@
-flask
+Flask==1.1.1
 requests
+json5==0.8.5
+jsonschema==3.0.2

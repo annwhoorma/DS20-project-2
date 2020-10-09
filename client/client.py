@@ -31,7 +31,7 @@ def login():
                       "args" : {"login" : CUR_USER,
                                 "password" : password}})
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         free_space = response["args"]["free_space"]
@@ -58,7 +58,7 @@ def new_user():
                       "args" : {"login" : CUR_USER,
                                 "password" : password}})
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         free_space = response["args"]["free_space"]
@@ -83,7 +83,7 @@ def read_dir():
                       "args" : {"cur_dir" : CUR_DIR,
                                 "target_dir" : target_dir}})
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         return render_template("main.html", name = CUR_USER,
@@ -106,7 +106,7 @@ def open_dir():
                       "args" : {"cur_dir" : CUR_DIR,
                                 "target_dir" : target_dir}})
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         CUR_DIR = target_dir
@@ -129,7 +129,7 @@ def make_dir():
                       "args" : {"cur_dir" : CUR_DIR,
                                 "new_dir" : new_dir}})
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         return render_template("main.html", name = CUR_USER,
@@ -151,7 +151,7 @@ def del_dir():
                       "args" : {"cur_dir" : CUR_DIR,
                                 "del_dir" : del_dir}})
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         return render_template("main.html", name = CUR_USER,
@@ -173,7 +173,7 @@ def create_file():
                       "args" : {"cur_dir" : CUR_DIR,
                                 "filename" : filename}})
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         return render_template("main.html", name = CUR_USER,
@@ -195,7 +195,7 @@ def delete_file():
                       "args" : {"cur_dir" : CUR_DIR,
                                 "filename" : filename}})
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         return render_template("main.html", name = CUR_USER,
@@ -217,7 +217,7 @@ def info_file():
                       "args" : {"cur_dir" : CUR_DIR,
                                 "filename" : filename}})
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         return render_template("main.html", name = CUR_USER,
@@ -242,7 +242,7 @@ def copy_file():
                                 "filename" : filename,
                                 "dest_dir" : dest_dir}})
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         return render_template("main.html", name = CUR_USER,
@@ -266,7 +266,7 @@ def move_file():
                                 "filename" : filename,
                                 "dest_dir" : dest_dir}})
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         return render_template("main.html", name = CUR_USER,
@@ -308,7 +308,7 @@ def read_file():
     
     msg = json.dumps(msg_json)
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         # recieve the file here
@@ -354,7 +354,7 @@ def write_file():
     
     msg = json.dumps(msg_json)
     
-    response = requests.get("http://0.0.0.0:8080", json = msg).json()
+    response = requests.get("http://localhost:8080", json = msg).json()
     
     if response["status"] == ok:
         # upload the file here
