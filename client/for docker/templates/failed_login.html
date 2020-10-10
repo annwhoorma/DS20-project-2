@@ -7,16 +7,19 @@
     </head>
     
     <body>
-    
-        <h2>Welcome! Please log in!</h2>
         
-        <form action=auth method="POST">
+        <h2>Incorrent cridentials :c</h2>
+        <h2>{{message}}</h2>
+        <h4>{{message_2}}</h4>
+        
+        <form action=new_user method="POST">
             <label for="fname">Login:</label><br>
             <input type="text" id="login" name="login"><br>
             <label for="lname">Password:</label><br>
             <input type="text" id="password" name="password" style="-webkit-text-security: disc;"><br><br>
             <input type="submit" value="Log in">
         </form> 
+        
     
     </body>
 

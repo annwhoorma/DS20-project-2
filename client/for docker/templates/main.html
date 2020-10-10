@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <title>DFS</title>
+    </head>
+    
+    <body>
+    
+        <h2>Hi, {{name}}! Welcome to DFSARA!</h2>
+        
+        <!-- General information bout user and file system -->
+     
+        {% if free_space%}
+            <p>Free space: <b>{{free_space}}</b> bytes</p>
+        {% endif%}
+        
+        <p>Current directory: <b>{{cur_dir}}</b></p>
+        
+        <!-- Ations with files -->
+        
+        <h4>Actions with files:</h4>      
+        
+         <!-- Create the file -->
+        
+        <form action=create_file method="POST">
+            <input type="text" id="filename" name="filename">
+            <input type="submit" value="Create file">
+        </form> 
+        
+         <!-- Download the file -->
+        
+        <form action=read_file method="POST">
+            <input type="text" id="filename" name="filename">
+            <input type="submit" value="Download file">
+        </form> 
+        
+        <font color="red">{{read_file_error}}</font>      
+        
+         <!-- Upload the file -->
+        
+        <form action=write_file method="POST">
+            <input type="text" id="filename" name="filename">
+            <input type="submit" value="Upload file">
+        </form> 
+        
+        <font color="red">{{write_file_error}}</font>    
+        
+         <!-- Delete the file -->
+        
+        <form action=delete_file method="POST">
+            <input type="text" id="filename" name="filename">
+            <input type="submit" value="Delete file">
+        </form> 
+        
+        <font color="red">{{delete_file_error}}</font>    
+        
+         <!-- Information about the file -->
+        
+        <form action=info_file method="POST">
+            <input type="text" id="filename" name="filename">
+            <input type="submit" value="Get information about file">
+        </form> 
+        
+        <font color="red">{{info_file_error}}</font>    
+         
+        {% for key in info_file_output %}
+            {% if key != "error"%}
+                <p><font color="blue">{{key}}</font> {{info_file_output[key]}}</p>
+            {% endif %}
+        {% endfor %}
+        
+         <!-- Copy the file -->
+        
+        <form action=copy_file method="POST">
+            Directory: 
+            <input type="text" id="dest_dir" name="dest_dir"><br>
+            Filename: 
+            <input type="text" id="filename" name="filename">
+            <input type="submit" value="Copy file">
+        </form> 
+        
+        <font color="red">{{copy_file_error}}</font>   
+        
+         <!-- Move the file -->
+        
+        <form action=move_file method="POST">
+            Directory: 
+            <input type="text" id="dest_dir" name="dest_dir"><br>
+            Filename: 
+            <input type="text" id="filename" name="filename">
+            <input type="submit" value="Move file">
+        </form> 
+        
+        <font color="red">{{move_file_error}}</font>   
+         
+         
+         
+         
+         
+         
+         
+         
+         
+        <!-- ACtions with directories -->
+        
+        <h4>Actions with directories:</h4>
+        
+        <!-- Change the directory -->
+        
+        <form action=open_dir method="POST">
+            <input type="text" id="target_dir" name="target_dir">
+            <input type="submit" value="Open directory">
+        </form>
+        
+        <font color="red">{{open_dir_error}}</font>
+        
+        <!-- List elements in the directory -->
+        
+        <form action=read_dir method="POST">
+            <input type="text" id="target_dir" name="target_dir">
+            <input type="submit" value="List content of directory">
+        </form>
+        
+        <font color="red">{{read_dir_error}}</font>
+        
+        {% for dict in read_dir_output %}
+            {% if dict["type"] == "file"%}
+                <p>{{dict["name"]}} <font color="green">{{dict["type"]}}</font></p>
+            {% endif %}
+            {% if dict["type"] == "dir"%}
+                <p>{{dict["name"]}} <font color="blue">{{dict["type"]}}</font></p>
+            {% endif %}
+        {% endfor %}
+        
+        <!-- Create the directory -->
+        
+        <form action=make_dir method="POST">
+            <input type="text" id="new_dir" name="new_dir">
+            <input type="submit" value="Create directory">
+        </form>
+        
+        <font color="red">{{make_dir_error}}</font>
+        
+        <!-- Delete the directory -->
+        
+        <form action=del_dir method="POST">
+            <input type="text" id="del_dir" name="del_dir">
+            <input type="submit" value="Delete directory">
+        </form>
+        
+        <font color="red">{{del_dir_error}}</font>
+    
+    </body>
+
+</html>

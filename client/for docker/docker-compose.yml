@@ -2,7 +2,7 @@ version: "3"
 
 services:
   gui:
-    build: .
+    image: dmmc123/dsproj2
     network_mode: host
     ports:
       - 1234:1234

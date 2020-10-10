@@ -147,7 +147,7 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
         msg = json.loads(json.loads(content.decode()))
         print(msg)
         
-        if msg["action"] == "auth":
+        if msg["command"] == "auth":
             # if cridentials are valid then let user in
             if msg["args"]["login"] == "Dmmc":
                 response = for_main()
@@ -155,7 +155,7 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
             else:
                 response = no()
                 
-        elif msg["action"] == "new_user":
+        elif msg["command"] == "new_user":
             # if cridentials are valid then create new user
             if msg["args"]["login"] != "Dmmc":
                 # here you initialize the FS for new user and return size
@@ -164,50 +164,50 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
             else:
                 response = no()
                 
-        elif msg["action"] == "read_dir":
+        elif msg["command"] == "read_dir":
             # listing directory content here
             response = read_dir()
             
-        elif msg["action"] == "open_dir":
+        elif msg["command"] == "open_dir":
             # checkign if such directory exist so user can go into it
             response = open_dir()
             
-        elif msg["action"] == "make_dir":
+        elif msg["command"] == "make_dir":
             # Checking if we can create the directory
             response = make_dir()
             
-        elif msg["action"] == "del_dir":
+        elif msg["command"] == "del_dir":
             # Checking if target folder exists
             response = del_dir()
 
-        elif msg["action"] == "create_file":
-            # Checking if we can create such a file
+        elif msg["command"] == "create_file":
+            # Checking if we can create s@app.route("/login", methods = ["POST", "GET"])uch a file
             response = create_file()
             
-        elif msg["action"] == "delete_file":
+        elif msg["command"] == "delete_file":
             # Checking if we can delete such a file
             response = delete_file()
             
-        elif msg["action"] == "info_file":
+        elif msg["command"] == "info_file":
             # Checking if we can get info about a file
             response = info_file()
             
-        elif msg["action"] == "copy_file":
+        elif msg["command"] == "copy_file":
             # Checking if we can successfully copy the file into destination directory
             response = copy_file()
             
-        elif msg["action"] == "move_file":
+        elif msg["command"] == "move_file":
             # Checking if we can successfully move the file into destination directory
             response = move_file()
             
-        elif msg["action"] == "read_file":
+        elif msg["command"] == "read_file":
             # Checking if such file exists
             response = read_file()
             
             send_file_thread = threading.Thread(target=send_file_to_client, daemon=True)
             send_file_thread.start()
             
-        elif msg["action"] == "write_file":
+        elif msg["command"] == "write_file":
             # Checking if client can upload such file
             response = write_file()
             
