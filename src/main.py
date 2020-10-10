@@ -2,10 +2,10 @@ from flask import Flask, request, jsonify
 import requests
 from namenode import Namenode, preprocessing
 
-RUSLAN_PORT = 1235
+RUSLAN_PORT = 1234
 MY_PORT = 5000
-ALLA_IP = "some_host_idk_yet"
-ALLA_PORT = 1234
+ALLA_IP = "localhost"
+ALLA_PORT = 1400
 OK = "<3"
 NOTOK = "</3"
 
