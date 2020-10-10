@@ -26,9 +26,13 @@ class DBInterface:
 
         query3 = """
                 call apoc.uuid.install('Dir')
-                call.apoc.uuid.install('File')
+                """
+        query4 = """
+                call apoc.uuid.install('File')
                 """
         self.driver.session().write_transaction(self.submit_query, query3)
+        self.driver.session().write_transaction(self.submit_query, query4)
+
 
     def is_fullpath(self, path):
         return True if path[0] == '/' else False
