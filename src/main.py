@@ -46,15 +46,15 @@ def index():
         print("status: ", status, "args: ", args)
         if status == 0:
             return jsonify(status=OK, args=args)
-            # command, args2 = preprocessing(msg["command"], args)
-            # json = jsonify(command, args2)
-            # msg2 = requests.request(method='get', url="http://{ip}:{port}".format(ip=ALLA_IP, port=ALLA_PORT), json=json)
-            # status2 = msg2["status"]
-            # args3 = msg2["args"]["error"] if "error" in msg2["args"] else ""
-            # if status2 == "OK":
-            #     return jsonify(status=OK, args=args3)
-            # if status2 == "Failed":
-            #     return jsonify(status=NOTOK, args={"error": args3})
+            command, args2 = preprocessing(msg["command"], args)
+            json = jsonify(command, args2)
+            msg2 = requests.request(method='get', url="http://{ip}:{port}".format(ip=ALLA_IP, port=ALLA_PORT), json=json)
+            status2 = msg2["status"]
+            args3 = msg2["args"]["error"] if "error" in msg2["args"] else ""
+            if status2 == "OK":
+                return jsonify(status=OK, args=args3)
+            if status2 == "Failed":
+                return jsonify(status=NOTOK, args={"error": args3})
         else:
             return jsonify(status=NOTOK, args=args)
 
