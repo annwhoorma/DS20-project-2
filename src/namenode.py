@@ -155,7 +155,7 @@ class Namenode:
     '''
 
     def auth(self, args):
-        username = args['username']
+        username = args['login']
         if not self.user_exists(username):
             return 1, {"error": throw_error("NO_SUCH_USER")}
         return 0, {}
