@@ -5,6 +5,7 @@ from DBinterface import DBInterface
 from user import User
 from Datanode import Datanode
 from time import time
+import json
 
 MASTER_DOWN_TIMEOUT = 11
 MASTER_NODE_TYPE = 'master'
@@ -54,11 +55,11 @@ class Namenode:
         }
     
     def perform_action_database(self, action, args):
-        if args.cur_dir and not args.cur_dir[0] == '/':
-            return 1, {"error": throw_error("NO_SUCH_DIR")}
+        print("perform action", args)
         res, arg = self.funcs_client[action](args)
-        if not res:
-            return 1, {"error": throw_error("INVALID_REQUEST")}
+        print(res, arg)
+        if not res == 0:
+            return 1, arg
         return res, arg
 
     def perform_action_heartbeat(self, action, args):
@@ -70,7 +71,7 @@ class Namenode:
             return res, arg
 
         res, arg = self.funcs_datanode[action](args)
-        if not res:
+        if not res == 0:
             return 1, {"error": throw_error("INVALID_REQUEST")}
         return res, arg
         
@@ -84,9 +85,9 @@ class Namenode:
     
     def init_node(self, args):
         ret_args = {}
-        if not args.node:
+        if not args["node"]:
             return 1, {"error": throw_error("INVALID_REQUEST")}
-        ip = args.node
+        ip = args["node"]
         node = Datanode(ip)
         master = self.get_master()
         if len(self.datanodes) == 0:
@@ -103,7 +104,7 @@ class Namenode:
 
     def change_master(self, args):
         if self.is_master_down():
-            node_ip = args.node_ip
+            node_ip = args["node_ip"]
             master_ip = ""
             master = self.get_master()
             if not master:
@@ -113,7 +114,7 @@ class Namenode:
         return 1, {"error": throw_error("INVALID_REQUEST")}
 
     def update_slaves_list(self, args):
-        slaves_ips = args.slaves
+        slaves_ips = args["slaves"]
         for ip in slaves_ips:
             node = self.find_datanode_by_ip(ip)
             node.demote()
@@ -161,25 +162,24 @@ class Namenode:
         return 0, {}
 
     def add_user(self, args):
-        username = args.login
+        username = args["login"]
         if self.user_exists(username):
             return 1, {"error": throw_error("USER_ALREADY_EXISTS")}
-        return 0, {}
 
-        self.add_user(username)
+        self.users.append(username)
         res, arg = self.database.add_root(username)
-        return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
+        return (0, ["/"]) if res == 0 else (1, {"error": arg})
 
     def create_file(self, args):
-        filename = args.filename
-        cur_dir = args.cur_dir
+        filename = args["filename"]
+        cur_dir = args["cur_dir"]
         path = ""
         res, arg = self.database.create_file(filename, cur_dir, path=path)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
 
     def read_file(self, args):
-        cur_dir = args.cur_dir
-        path = args.filename # might include dirs
+        cur_dir = args["cur_dir"]
+        path = args["filename"] # might include dirs
         fullpath, arg = self.database.get_fullpath_as_list(cur_dir, path=path)
         if fullpath == 1:
             return 1, {"error": arg}
@@ -187,8 +187,8 @@ class Namenode:
         return (0, {"path": arg}) if res == True else (1, {"error": arg})
 
     def write_file(self, args):
-        cur_dir = args.cur_dir
-        path = args.filename
+        cur_dir = args["cur_dir"]
+        path = args["filename"]
         fullpath, arg = self.database.get_fullpath_as_list(cur_dir, path)
         if fullpath == 1:
             return 1, {"error": arg}
@@ -196,14 +196,14 @@ class Namenode:
         return (0, {"path": arg}) if res == True else (1, {"error": arg})
     
     def delete_file(self, args):
-        cur_dir = args.cur_dir
-        path = args.filename
+        cur_dir = args["cur_dir"]
+        path = args["filename"]
         res, arg = self.database.delete_file(cur_dir, path=path)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
 
     def info_file(self, args):
-        cur_dir = args.cur_dir
-        path = args.filename
+        cur_dir = args["cur_dir"]
+        path = args["filename"]
         fullpath, arg = self.database.get_fullpath_as_list(cur_dir, path)
         if fullpath == 1:
             return 1, {"error": arg}
@@ -211,50 +211,50 @@ class Namenode:
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
     
     def copy_file(self, args):
-        cur_dir = args.cur_dir
-        path_from = args.filename
-        path_to = args.dest_dir
+        cur_dir = args["cur_dir"]
+        path_from = args["filename"]
+        path_to = args["dest_dir"]
         res, arg = self.database.copy_file(cur_dir, path_from, path_to)
         # arg is [src, dst]
         return (0, {"path": arg[0]}) if res == 0 else (1, {"error": arg})
 
     def move_file(self, args):
-        cur_dir = args.cur_dir
-        path_from = args.filename
-        path_to = args.dest_dir
+        cur_dir = args["cur_dir"]
+        path_from = args["filename"]
+        path_to = args["dest_dir"]
         res, arg = self.database.move_file(cur_dir, path_from, path_to)
         # arg is [src, dst]
         return (0, {"src": arg[0], "dst": arg[1]}) if res == 0 else (1, {"error": arg})
 
     def open_dir(self, args):
-        cur_dir = args.cur_dir
-        path = args.target_dir
+        cur_dir = args["cur_dir"]
+        path = args["target_dir"]
         fullpath = self.database.get_fullpath_as_list(cur_dir, path)
         if self.database.path_exists(fullpath, required_label="Dir"):
             return 0, {}
         return 1, {"error": throw_error("NO_SUCH_DIR")}
     
     def read_dir(self, args):
-        cur_dir = args.cur_dir
-        path = args.target_dir
+        cur_dir = args["cur_dir"]
+        path = args["target_dir"]
         res, arg = self.database.list_files(cur_dir, path)
         return (0, {"dirs": arg}) if res == 0 else (1, {"error": arg})
         
     def make_dir(self, args):
-        cur_dir = args.cur_dir
-        path = args.new_dir
+        cur_dir = args["cur_dir"]
+        path = args["new_dir"]
         res, arg = self.database.make_dir(cur_dir, path)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
 
     def del_dir(self, args):
-        cur_dir = args.cur_dir
-        path = args.del_dir
+        cur_dir = args["cur_dir"]
+        path = args["del_dir"]
         res, arg = self.database.delete_dir(cur_dir, path)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
 
     def user_exists(self, username):
         for user in self.users:
-            if user.username == username:
+            if user == username:
                 return True
         return False
 

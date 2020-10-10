@@ -50,8 +50,6 @@ class DBInterface:
                 cur_dir_path.remove('')
             fullpath = cur_dir_path + fullpath
 
-        if not self.namenode.user_exists(fullpath[0]):
-            return 1, throw_error("NO_SUCH_USER")
         fullpath[0] = "/"
 
         return 0, fullpath
@@ -95,12 +93,13 @@ class DBInterface:
 
     def path_exists(self, fullpath, required_label=""):
         folders_pairs = self.get_fullpath_pairs(fullpath)
+        print(folders_pairs)
         continue_flag = False
         uuid = ""
         label = "" # will be set to "Dir" or "File"
         for pair in folders_pairs:
             if not continue_flag:
-                return False
+                return 1, throw_error("NO_SUCH_DIR")
 
             query = """
                     match (folder1:Dir)-[:HAS]->(child)
@@ -119,7 +118,8 @@ class DBInterface:
             return uuid, label
         if continue_flag and not required_label:
             return uuid, label
-        return 1, throw_error("PATH")
+        print("reached here")
+        return 1, throw_error("NO_SUCH_DIR")
 
     def is_name_unique(self, dir_uuid, new_name):
         res, files = self.list_all(uuid=dir_uuid)
@@ -147,8 +147,12 @@ class DBInterface:
 
     def create_file(self, name, cur_dir, path="", uuid=""):
         # uuid is uuid of the directory 
+        print(path)
+        fullpath = []
+        uuid = ""
         if not uuid and path:
             res, fullpath = self.get_fullpath_as_list(cur_dir, path)
+            print(fullpath)
             if not res == 0:
                 # fullpath will contain an error in this case
                 return 1, fullpath
@@ -160,9 +164,9 @@ class DBInterface:
             if not label == 'Dir':
                 return 1, throw_error("NO_SUCH_DIR")
         
-        if not uuid and not path:
+        if not uuid and not path and not path == "":
             return 1, throw_error("DIR_NOT_SPECIFIED")
-
+        print(fullpath, uuid)
         query = """
                 match(n: Dir) where n.uuid = "{uuid}"
                 create (child: File {{name: "{filename}"}})
@@ -172,6 +176,8 @@ class DBInterface:
         return (0, fullpath) if result.single() == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
 
     def delete_file(self, cur_dir, path="", uuid=""):
+        fullpath = []
+        uuid = ""
         if not path and not uuid:
             return 1, throw_error("DIR_NOT_SPECIFIED")
 

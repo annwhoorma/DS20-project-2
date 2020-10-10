@@ -12,40 +12,6 @@ NOTOK = "</3"
 client = Flask(__name__)
 namenode = Namenode()
 
-@client.route('/', methods=['GET'])
-def index():
-    msg = request.data # from Ruslan or Alla
-    if is_heartbeat_protocol(msg.command):
-        print("heartbeat protocol detected")
-        action = msg.action 
-        args = msg.args if msg.args else ""
-        status, args = namenode.perform_action_heartbeat(action, args)
-        if status == 1:
-            return jsonify(status="Failed", args={})
-        elif status == 0:
-            return jsonify(status="OK", args=args)
-        return
-        
-    elif is_client_protocol(msg.command):
-        print("client protocol detected")
-        status, args = namenode.perform_action_database(msg.action, msg.args)
-        if status == 0:
-            command, args2 = preprocessing(msg.action, args)
-            json = jsonify(command, args2)
-            msg = requests.request(method='get', url="http://{ip}:{port}".format(ip=ALLA_IP, port=ALLA_PORT), json=json)
-            status2 = msg.status
-            args3 = msg.args.error or "some error"
-            if status2 == "OK":
-                return jsonify(status=OK, args={}) ### fix args
-            if status2 == "Failed":
-                return jsonify(status=NOTOK, args={"error": args3})
-        else:
-            return jsonify(status=NOTOK, args=args)
-
-    else: 
-        return
-
-client.run(port=MY_PORT)
 
 def is_heartbeat_protocol(cmd):
     commands = ['init_node', '<3', 'change_master', 'get_slaves', 'share_slaves']
@@ -59,3 +25,40 @@ def is_client_protocol(cmd):
     if cmd and cmd in commands:
         return True
     return False
+
+@client.route('/', methods=['GET'])
+def index():
+    msg = request.json # from Ruslan or Alla
+    if is_heartbeat_protocol(msg["command"]):
+        print("heartbeat protocol detected")
+        action = msg["command"] 
+        args = msg["args"] if not msg["command"] == "<3" else ""
+        status, args = namenode.perform_action_heartbeat(action, args)
+        if status == 1:
+            return jsonify(status="Failed", args={})
+        elif status == 0:
+            return jsonify(status="OK", args=args)
+        return jsonify(status="OK", args={})
+        
+    elif is_client_protocol(msg["command"]):
+        print("client protocol detected")
+        status, args = namenode.perform_action_database(msg["command"], msg["args"])
+        print("status: ", status, "args: ", args)
+        if status == 0:
+            return jsonify(status=OK, args=args)
+            # command, args2 = preprocessing(msg["command"], args)
+            # json = jsonify(command, args2)
+            # msg2 = requests.request(method='get', url="http://{ip}:{port}".format(ip=ALLA_IP, port=ALLA_PORT), json=json)
+            # status2 = msg2["status"]
+            # args3 = msg2["args"]["error"] if "error" in msg2["args"] else ""
+            # if status2 == "OK":
+            #     return jsonify(status=OK, args=args3)
+            # if status2 == "Failed":
+            #     return jsonify(status=NOTOK, args={"error": args3})
+        else:
+            return jsonify(status=NOTOK, args=args)
+
+    else: 
+        return jsonify(status=OK, args={})
+
+client.run(port=MY_PORT)
