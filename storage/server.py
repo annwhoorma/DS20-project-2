@@ -7,7 +7,8 @@ from multiprocessing import Process
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 import time
-
+import requests
+import random
 # tudu - tokenizer for paths, test info in linux OS, agreement on naming in JSONs commands
 
 # testing - curl -X GET -d
@@ -15,9 +16,12 @@ import time
 # localhost:1337
 
 MASTER_IP = ''
-NODE_IP = os.environ.get('MY_IP')
-NAMESERVER_IP = os.environ.get('NAMENODE')
-NAMESERVER_PORT = 1401
+#node_ip = requests.get('https://api.ipify.org').text
+#NODE_IP = os.environ.get('MY_IP')
+NAMESERVER_IP = "192.168.1.52"
+NODE_IP = "192.168.1.52"
+#NAMESERVER_IP = os.environ.get('NAMENODE')
+NAMESERVER_PORT = 5000
 NAME_SERVER_ADDRESS = 'http://' + NAMESERVER_IP + ':' + str(NAMESERVER_PORT)
 SLAVES = []
 HTTP_PORT = 1400
@@ -28,8 +32,9 @@ TIME_STAMP = 0
 ########### functions for nodes' communication ###########
 def init_node():
     global MASTER_IP
+    global NODE_IP
     message = {"command": "init_node",
-    "args": {"node": NODE_IP}}
+    "args": {"node": NODE_IP} }
 
     response = json.loads(requests.get(NAME_SERVER_ADDRESS, json=message).text)
     # format to response:
@@ -39,25 +44,39 @@ def init_node():
             # node_status: new, old
     if response['status'] == "OK":
         MASTER_IP = response["args"]["master"]
+        print("MASTER_IP: ", MASTER_IP)
         init_fs(response['args']['node_status'])
     else:
-        print("-----------Retrying to initialize node-----------"")
+        print("-----------Retrying to initialize node-----------")
         init_node()
         # ? should I do it like this?
 
 def init_fs(node_status):
     if node_status == 'new':
         request_fs()
-        pass
+        print("------------Successfully initialized------------")
     else:
-        os.system("rm -r */")
-        pass
+        ## вернуть -> os.system("rm -r */")
+        print("------------Successfully initialized------------")
 
 def share_slaves():
     global SLAVES
-    message = {"command": "get_slaves", "args": {"slaves": SLAVES}}
+
+    res = ""
+    slaves_tmp = ""
+    for item in SLAVES:
+        slaves_tmp += " "
+        slaves_tmp += item
+
+    if slaves_tmp != "":
+        slaves_tmp = slaves_tmp[1:]
+        print(slaves_tmp)
+    else:
+        slaves_tmp = "none"
+    res = {"command": "get_slaves", "args": {"slaves": slaves_tmp}}
+
     try:
-        requests.get(NAME_SERVER_ADDRESS, json=message, timeout=1)
+        requests.get(NAME_SERVER_ADDRESS, json=res, timeout=1)
     except requests.exceptions.ReadTimeout:
         pass
     except requests.exceptions.ConnectionError:
@@ -65,24 +84,28 @@ def share_slaves():
 
 def get_slaves():
     global SLAVES
-    message = {"command": "send_slaves"}
+    global NAME_SERVER_ADDRESS
+    message = {"command": "share_slaves"}
     response = json.loads(requests.get(NAME_SERVER_ADDRESS, json=message).text)
-    SLAVES = response["args"]["slaves"]
+
+    if response["args"]["slaves"] != "none":
+        SLAVES = response["args"]["slaves"].split(" ")
 
 def update_time_stamp():
     global TIME_STAMP
     TIME_STAMP = time.time()
 
 def slave_command_distribution(message):
+    print(SLAVES)
     for slave in SLAVES:
         try:
             slave_address = 'http://' + slave + ':' + str(HTTP_PORT)
             response = json.loads(
                 requests.get(slave_address, json=message, timeout=1).text)
         except requests.exceptions.ReadTimeout:
-            SLAVES.pop(slave)
+            SLAVES.remove(slave)
         except requests.exceptions.ConnectionError:
-            SLAVES.pop(slave)
+            SLAVES.remove(slave)
 
 def change_master(message):
     global MASTER_IP
@@ -90,6 +113,7 @@ def change_master(message):
 
 def request_fs():
     message = {"command": "send_fs", "args": {"ip": NODE_IP}}
+    message = json.dumps(message)
     master_address = 'http://' + MASTER_IP + ':' + str(PORT_http)
     response = json.loads(requests.get(master_address, json=message, timeout=0.000001).text)
 
@@ -113,8 +137,7 @@ def request_fs():
 
         os.system("unzip bckp.zip")
         os.system("rm bckp.zip")
-    except requests.exceptions.ConnectionError:
-        pass
+
 
 
 def send_fs(message):
@@ -348,22 +371,18 @@ def receive_file(message):
     path = message["args"]["path"]
     filename = root + path
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    host = ""
+    s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind((host, FTP_PORT))
-    s.listen(5)
-    conn, addr = s.accept()
+    s.connect((node, PORT_ftp_send))
 
-    with open('{}'.format(filename), 'wb') as f:
-        while True:
-            data = conn.recv(1024)
-            if not data:
-                break
-            f.write(data)
+    f = open(filename, 'rb')
+    l = f.read(1024)
+    while (l):
+        s.send(l)
+        l = f.read(1024)
     f.close()
-    conn.close()
     s.close()
+
 
 def write_file(message):
     process = Process(target=receive_file(message))
@@ -374,7 +393,9 @@ def write_file(message):
 ########### Class for HTTP handler ###########
 class Http_handler(BaseHTTPRequestHandler):
     def do_GET(self):
-
+        global MASTER_IP
+        global NODE_IP
+        res = ''
         content_length = int(self.headers['Content-Length'])
         data = self.rfile.read(content_length)
         message = json_read(data)
@@ -418,10 +439,11 @@ class Http_handler(BaseHTTPRequestHandler):
             res = write_file(message)
         elif command == "<3":
             update_time_stamp()
+            res = json.dumps({"status": "OK", "message": "Master is alive"})
         elif command == "change_master":
             change_master(message)
         elif command == "send_fs":
-            data_json = send_fs(message)
+            res = send_fs(message)
         else:
             res = json.dumps({"status": "Failed", "message": "Invalid command"})
 
@@ -437,47 +459,66 @@ class Master():
         thread.start()
 
     def start(self):
+        global MASTER_IP
         while NODE_IP == MASTER_IP:
             get_slaves()
             message = {"command": "<3"}
+            print(SLAVES)
             try:
                 requests.get(NAME_SERVER_ADDRESS, json=message, timeout=1)
             except Exception:
                 pass
+
             for slave in SLAVES:
                 try:
                     response = json.loads(requests.get('http://' + slave + ':' + str(HTTP_PORT), json=message, timeout=1).text)
                 except requests.exceptions.ReadTimeout:
-                    SLAVES.pop(slave)
+                    if SLAVES != []:
+
+                        SLAVES.remove(slave)
+                        print("-----------Node {} is dead-----------".format(slave))
                 except requests.exceptions.ConnectionError:
-                    SLAVES.pop(slave)
+                    if SLAVES != []:
+
+                        SLAVES.remove(slave)
+                        print("-----------Node {} is dead-----------".format(slave))
+
             share_slaves()
 
         # in case node changed the status, it should be reload as a slave
         new_slave = Slave()
-        init_node()
+
 
 
 class Slave():
     def __init__(self):
-        hread = threading.Thread(target=self.start, args=())
+        thread = threading.Thread(target=self.start, args=())
         thread.daemon = True
         thread.start()
 
     def start(self):
+        global MASTER_IP
         while True:
-            if time.time() - TIME_STAMP > 7:
+            if time.time() - TIME_STAMP > 3:
+                time.sleep(random.randint(1, 4))
                 message  = {"command": "change_master", "args": {"node_ip": NODE_IP}}
-                response = json.loads(NAME_SERVER_ADDRESS, json=message, timeout=1).text)
+                response = json.loads(requests.get(NAME_SERVER_ADDRESS, json=message, timeout=1).text)
                 if response['args']['master'] == NODE_IP:
                     MASTER_IP = NODE_IP
+
                     get_slaves()
-                    for slave in SLAVES:
-                        response = json.loads('http://' + slave + ':' + str(HTTP_PORT), json=message, timeout=1).text)
                     new_master = Master()
+                    for slave in SLAVES:
+                        if SLAVES != []:
+                            if slaves != NODE_IP:
+                                response = json.loads(requests.get('http://' + slave + ':' + str(HTTP_PORT), json=message, timeout=1).text)
+
+
                     break
 
+
 if __name__ == "__main__":
+    print(NODE_IP)
     NODE_ADDRESS = ('', HTTP_PORT)
     httpd = HTTPServer(NODE_ADDRESS, Http_handler)
     init_node()
