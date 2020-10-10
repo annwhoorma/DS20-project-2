@@ -173,38 +173,39 @@ class Namenode:
     def create_file(self, args):
         filename = args["filename"]
         cur_dir = args["cur_dir"]
-        path = ""
-        res, arg = self.database.create_file(filename, cur_dir, path=path)
+        res, arg = self.database.create_file(filename, cur_dir)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
 
     def read_file(self, args):
-        cur_dir = args["cur_dir"]
-        path = args["filename"] # might include dirs
-        fullpath, arg = self.database.get_fullpath_as_list(cur_dir, path=path)
-        if fullpath == 1:
-            return 1, {"error": arg}
-        res, arg = self.database.path_exists(fullpath, required_label="File")
-        return (0, {"path": arg}) if res == True else (1, {"error": arg})
+        pass
+    #     cur_dir = args["cur_dir"]
+    #     path = args["filename"] # might include dirs
+    #     fullpath, arg = self.database.get_fullpath_as_list(cur_dir, path=path)
+    #     if fullpath == 1:
+    #         return 1, {"error": arg}
+    #     res, arg = self.database.path_exists(fullpath, required_label="File")
+    #     return (0, {"path": arg}) if res == True else (1, {"error": arg})
 
     def write_file(self, args):
-        cur_dir = args["cur_dir"]
-        path = args["filename"]
-        fullpath, arg = self.database.get_fullpath_as_list(cur_dir, path)
-        if fullpath == 1:
-            return 1, {"error": arg}
-        res, arg = self.database.path_exists(fullpath, required_label="File")
-        return (0, {"path": arg}) if res == True else (1, {"error": arg})
+        pass
+    #     cur_dir = args["cur_dir"]
+    #     path = args["filename"]
+    #     fullpath, arg = self.database.get_fullpath_as_list(cur_dir, path)
+    #     if fullpath == 1:
+    #         return 1, {"error": arg}
+    #     res, arg = self.database.path_exists(fullpath, required_label="File")
+    #     return (0, {"path": arg}) if res == True else (1, {"error": arg})
     
     def delete_file(self, args):
         cur_dir = args["cur_dir"]
         path = args["filename"]
-        res, arg = self.database.delete_file(cur_dir, path=path)
+        res, arg = self.database.delete_file(cur_dir, path, cur_dir)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
 
     def info_file(self, args):
         cur_dir = args["cur_dir"]
         path = args["filename"]
-        fullpath, arg = self.database.get_fullpath_as_list(cur_dir, path)
+        fullpath, arg = self.database.get_fullpath_as_list(cur_dir)
         if fullpath == 1:
             return 1, {"error": arg}
         res, arg = self.database.path_exists(fullpath, required_label="File")
@@ -229,7 +230,7 @@ class Namenode:
     def open_dir(self, args):
         cur_dir = args["cur_dir"]
         path = args["target_dir"]
-        fullpath = self.database.get_fullpath_as_list(cur_dir, path)
+        fullpath = self.database.get_fullpath_as_list(cur_dir)
         if self.database.path_exists(fullpath, required_label="Dir"):
             return 0, {}
         return 1, {"error": throw_error("NO_SUCH_DIR")}
