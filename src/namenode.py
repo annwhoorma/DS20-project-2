@@ -199,7 +199,7 @@ class Namenode:
     def delete_file(self, args):
         cur_dir = args["cur_dir"]
         path = args["filename"]
-        res, arg = self.database.delete_file(cur_dir, path, cur_dir)
+        res, arg = self.database.delete_file(cur_dir, path)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
 
     def info_file(self, args):
@@ -223,7 +223,7 @@ class Namenode:
         cur_dir = args["cur_dir"]
         path_from = args["filename"]
         path_to = args["dest_dir"]
-        res, arg = self.database.move_file(cur_dir, path_from, path_to)
+        res, arg = self.database.move_file(cur_dir, path_to)
         # arg is [src, dst]
         return (0, {"src": arg[0], "dst": arg[1]}) if res == 0 else (1, {"error": arg})
 
@@ -238,19 +238,19 @@ class Namenode:
     def read_dir(self, args):
         cur_dir = args["cur_dir"]
         path = args["target_dir"]
-        res, arg = self.database.list_files(cur_dir, path)
+        res, arg = self.database.list_files(cur_dir)
         return (0, {"dirs": arg}) if res == 0 else (1, {"error": arg})
         
     def make_dir(self, args):
         cur_dir = args["cur_dir"]
         path = args["new_dir"]
-        res, arg = self.database.make_dir(cur_dir, path)
+        res, arg = self.database.make_dir(cur_dir)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
 
     def del_dir(self, args):
         cur_dir = args["cur_dir"]
         path = args["del_dir"]
-        res, arg = self.database.delete_dir(cur_dir, path)
+        res, arg = self.database.delete_dir(cur_dir)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
 
     def user_exists(self, username):

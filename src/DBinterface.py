@@ -168,7 +168,7 @@ class DBInterface:
         result = self.driver.session().write_transaction(self.submit_query, query)
         return (0, fullpath) if result.single() == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
 
-    def delete_file(self, name, cur_dir, uuid=""):
+    def delete_file(self, cur_dir, uuid=""):
         fullpath = []
 
         if not uuid:
@@ -219,7 +219,7 @@ class DBInterface:
         # if not self.is_name_unique(uuid2, filename):
         #     return 1, throw_error("NAME_EXISTS")
 
-        res, fp = self.create_file(filename, cur_dir, uuid=uuid2)
+        res, fp = self.create_file(fullpath1[len(fullpath1)], cur_dir, uuid=uuid2)
         if res == 0:
             if delete_original:
                 res1, fp1 = self.delete_file(cur_dir, uuid=uuid1)
