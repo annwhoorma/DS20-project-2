@@ -10,12 +10,13 @@ OK = "<3"
 NOTOK = "</3"
 
 client = Flask(__name__)
+namenode = Namenode()
 
 @client.route('/', methods=['GET'])
 def index():
-    namenode = Namenode()
-    msg = request.json # from Ruslan or Alla
+    msg = request.data # from Ruslan or Alla
     if is_heartbeat_protocol(msg.command):
+        print("heartbeat protocol detected")
         action = msg.action 
         args = msg.args if msg.args else ""
         status, args = namenode.perform_action_heartbeat(action, args)
@@ -26,6 +27,7 @@ def index():
         return
         
     elif is_client_protocol(msg.command):
+        print("client protocol detected")
         status, args = namenode.perform_action_database(msg.action, msg.args)
         if status == 0:
             command, args2 = preprocessing(msg.action, args)

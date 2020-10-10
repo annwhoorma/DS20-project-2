@@ -14,19 +14,21 @@ class DBInterface:
 
     def create_constraints(self):
         query1 = """
-                create constraint on (dir: Dir)
+                create constraint if not exists on (dir: Dir)
                 assert dir.uuid is unique
-
-                create constraint on (file: File)
+                """
+        query2 = """
+                create constraint if not exists on (file: File)
                 assert file.uuid is unique
                 """
         self.driver.session().write_transaction(self.submit_query, query1)
+        self.driver.session().write_transaction(self.submit_query, query2)
 
-        query2 = """
+        query3 = """
                 call apoc.uuid.install('Dir')
                 call.apoc.uuid.install('File')
                 """
-        self.driver.session().write_transaction(self.submit_query, query2)
+        self.driver.session().write_transaction(self.submit_query, query3)
 
     def is_fullpath(self, path):
         return True if path[0] == '/' else False
@@ -159,7 +161,7 @@ class DBInterface:
 
         query = """
                 match(n: Dir) where n.uuid = "{uuid}"
-                create (child: File {{name: "{filename}"}}z)
+                create (child: File {{name: "{filename}"}})
                 create (n)-[:HAS]->(child)
                 """.format(uuid=uuid, filename=name)
         result = self.driver.session().write_transaction(self.submit_query, query)
