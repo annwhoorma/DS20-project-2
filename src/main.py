@@ -26,6 +26,19 @@ def is_client_protocol(cmd):
         return True
     return False
 
+def requires_datanodes_only(cmd):
+    commands = ["read_file", "write_file", "info_file"]
+    if cmd and cmd in commands:
+        return True
+    return False
+
+def requires_namenode_only(cmd):
+    commands = ["auth", "open_dir", "read_dir"]
+    if cmd and cmd in commands:
+        return True
+    return False
+
+
 @client.route('/', methods=['GET'])
 def index():
     msg = request.json # from Ruslan or Alla
@@ -42,23 +55,48 @@ def index():
         
     elif is_client_protocol(msg["command"]):
         print("client protocol detected")
-        status, args = namenode.perform_action_database(msg["command"], msg["args"])
-        print("status: ", status, "args: ", args)
-        if status == 0:
-            return jsonify(status=OK, args=args)
-            command, args2 = preprocessing(msg["command"], args)
+        if msg["command"] == "new_user":
+            status, args = namenode.perform_action_database(msg["command"], msg["args"])
+            if status == 0:
+                username = args["login"]
+                json = jsonify(command="init", args={"user": "/{username}".format(username=username)})
+                msg2 = requests.request(method='get', url="http://{ip}:{port}".format(ip=ALLA_IP, port=ALLA_PORT), json=json)
+                return jsonify(status=OK, args={})
+
+        if requires_namenode_only(msg["command"]):
+            status, args = namenode.perform_action_database(msg["command"], msg["args"])
+            return jsonify(status=OK, args=args) if status == 0 else jsonify(status=NOTOK, args=args)
+
+        elif requires_datanodes_only(msg["command"]):
+            command, args2 = preprocessing(msg["command"], msg["args"])
+            json = jsonify(command, args2)
+            msg2 = requests.request(method='get', url="http://{ip}:{port}".format(ip=ALLA_IP, port=ALLA_PORT), json=json)
+            status2 = msg2["status"]
+            args3 = msg2["args"]["error"] if status2 == "Failed" else ""
+            return jsonify(status=OK, args=args3) if status == "OK" else jsonify(status=NOTOK, args={"error": args3})
+        
+        else: # requires both
+            command, args2 = preprocessing(msg["command"], msg["args"])
             json = jsonify(command, args2)
             msg2 = requests.request(method='get', url="http://{ip}:{port}".format(ip=ALLA_IP, port=ALLA_PORT), json=json)
             status2 = msg2["status"]
             args3 = msg2["args"]["error"] if "error" in msg2["args"] else ""
-            if status2 == "OK":
-                return jsonify(status=OK, args=args3)
-            if status2 == "Failed":
+
+            if status == "OK" and msg["command"] == "copy_file":
+                # the datanode sent the new name
+                new_name = msg2["args"]["filename"]
+                msg["args"]["new_name"] = new_name
+                status, args = namenode.perform_action_database(msg["command"], msg["args"])
+                return jsonify(status=OK, args=args) if status == 0 else jsonify(status=NOTOK, args=args)
+
+            elif status == "OK":
+                # update the namenode
+                status, args = namenode.perform_action_database(msg["command"], msg["args"])
+                return jsonify(status=OK, args=args) if status == 0 else jsonify(status=NOTOK, args=args)
+            else:
                 return jsonify(status=NOTOK, args={"error": args3})
-        else:
-            return jsonify(status=NOTOK, args=args)
 
     else: 
-        return jsonify(status=OK, args={})
+        return jsonify(status=NOTOK, args={"error": "Invalid command"})
 
 client.run(port=MY_PORT)

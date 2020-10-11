@@ -1,4 +1,5 @@
 from neo4j import GraphDatabase
+from neo4j import unit_of_work
 from errors import throw_error
 
 # for neo4j
@@ -50,10 +51,17 @@ class DBInterface:
             pairs.append([fullpath[index], fullpath[index+1]])
         return pairs
 
-    def submit_query(self, tx, query):
-        return tx.run(query)
+    def submit_query(self, tx, query, list_all=False, path_ex=False):
+        res = tx.run(query)
+        if list_all:
+            return [{"name": record[0], "type": record[1]} for record in res]
+        if path_ex:
+            tmp = [[rec[0], rec[1], rec[2], rec[3]] for rec in res]
+            print("TMP", tmp)
+            return tmp
+        return res.single()
 
-    def list_all(self, uuid="", fullpath=""):
+    def list_all(self, uuid=None, fullpath=None):
         # specify either uuid or fullpath, not both, otherwise fullpath will have a priority
         if fullpath and not uuid:
             # if full path was specified
@@ -72,9 +80,8 @@ class DBInterface:
                 """.format(uuid=uuid)
 
         # result will contains entries of type: [file/dir-name, label: Dir or File]
-        result = self.driver.session().write_transaction(self.submit_query, query)
-        arg = [{"name": record[0], "type": record[1]} for record in result] if not result == None else []
-        return 0, arg
+        result = self.driver.session().read_transaction(self.submit_query, query, list_all=True)
+        return 0, result
 
     def path_exists(self, fullpath, required_label=""):
         while " " in fullpath: 
@@ -84,16 +91,18 @@ class DBInterface:
                     match (dir:Dir)
                     where dir.name = "{name}"
                     return dir.uuid, labels(dir)[0]
-                    """.format(name=fullpath[0])
-            result = self.driver.session().write_transaction(self.submit_query, query)
-            return result.single()[0], result.single()[1]
+                    """.format(name="ruslan4")
+            with self.driver.session() as session:
+                sing = session.read_transaction(self.submit_query, query)
+            return sing[0], sing[1]
 
         folders_pairs = self.get_fullpath_pairs(fullpath)
         print(folders_pairs)
-        continue_flag = False
+        continue_flag = True
         uuid = ""
         label = "" # will be set to "Dir" or "File"
         for pair in folders_pairs:
+            print("PAIR", pair)
             if not continue_flag:
                 return 1, throw_error("NO_SUCH_DIR")
 
@@ -103,33 +112,22 @@ class DBInterface:
                     return folder1.name, child.name, child.uuid, labels(child)[0]
                     """.format(name1=pair[0], name2=pair[1])
 
-            result = self.driver.session().write_transaction(self.submit_query, query)
-            result = [[rec[0], rec[1], rec[2], rec[3]] for rec in result]
+            result = self.driver.session().read_transaction(self.submit_query, query, path_ex=True)
+            if len(result) == 0:
+                print("HEERER ER")
+                return 1, throw_error("NO_SUCH_DIR")
             if result[0][0] == pair[0] and result[0][1] == pair[1]:
                 continue_flag = True
                 uuid = result[0][2] # should be uuid of the second dir/file
                 label = result[0][3]
+            else:
+                return 1, throw_error("NO_SUCH_DIR")
 
         if continue_flag and required_label and label == required_label:
             return uuid, label
         if continue_flag and not required_label:
             return uuid, label
         return 1, throw_error("NO_SUCH_DIR")
-
-    def is_name_unique(self, dir_uuid, new_name):
-        res, files = self.list_all(uuid=dir_uuid)
-        for [name, label] in files:
-            if name == new_name:
-                return False
-        return True
-
-    def are_two_fullpaths_same(self, fullpath1, fullpath2):
-        if not len(fullpath1) == len(fullpath2) or not fullpath1[len(fullpath1)] == fullpath2[len(fullpath2)]:
-            return False
-        for depth in len(fullpath1):
-            if not fullpath1[depth] == fullpath2[depth]:
-                return False
-        return True
 
 
     def add_root(self, name):
@@ -138,51 +136,47 @@ class DBInterface:
                 """.format(name=name)
 
         result = self.driver.session().write_transaction(self.submit_query, query)
-        return (0, "") if result.single() == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
+        return (0, "") if result == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
 
-    def create_file(self, name, cur_dir, uuid=""):
+    def create_file(self, cur_dir):
         # uuid is uuid of the directory
+        filename = ""
         fullpath = []
-        if not uuid:
-            res, fullpath = self.get_fullpath_as_list(cur_dir)
-            print("FULLPATH", fullpath)
-            if not res == 0:
-                # fullpath will contain an error in this case
-                return 1, fullpath
-            result = self.path_exists(fullpath)
-            if not result:
-                return 1, throw_error("NO_SUCH_DIR")
-            
-            uuid, label = result[0], result[1]
-            print("UUID: ", uuid, "LABEL: ", label)
-            if not label == 'Dir':
-                return 1, throw_error("NO_SUCH_DIR")
+        res, fullpath = self.get_fullpath_as_list(cur_dir)
+        if not res == 0:
+            # fullpath will contain an error in this case
+            return 1, fullpath
+        filename = fullpath.pop(len(fullpath)-1)
+        result = self.path_exists(fullpath)
+        if not result:
+            return 1, throw_error("NO_SUCH_DIR")
+
+        uuid, label = result[0], result[1]
+        print("UUID: ", uuid, "LABEL: ", label)
+        if not label == 'Dir':
+            return 1, throw_error("NO_SUCH_DIR")
         
-        if not uuid:
-            return 1, throw_error("DIR_NOT_SPECIFIED")
         query = """
                 match(n: Dir) where n.uuid = "{uuid}"
                 create (child: File {{name: "{filename}"}})
                 create (n)-[:HAS]->(child)
-                """.format(uuid=uuid, filename=name)
+                """.format(uuid=uuid, filename=filename)
         result = self.driver.session().write_transaction(self.submit_query, query)
-        return (0, fullpath) if result.single() == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
+        return (0, fullpath) if result == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
 
-    def delete_file(self, cur_dir, uuid=""):
+    def delete_file(self, cur_dir):
         fullpath = []
-
-        if not uuid:
-            res, fullpath = self.get_fullpath_as_list(cur_dir)
-            if not res == 0:
-                # fullpath will contain an error in this case
-                return 1, fullpath
-            result = self.path_exists(fullpath)
-            if not result:
-                return 1, throw_error("NO_SUCH_DIR")
-            
-            uuid, label = result[0], result[1]
-            if not label == "File":
-                return 1, throw_error("NO_SUCH_FILE")
+        res, fullpath = self.get_fullpath_as_list(cur_dir)
+        if not res == 0:
+            # fullpath will contain an error in this case
+            return 1, fullpath
+        result = self.path_exists(fullpath)
+        if not result:
+            return 1, throw_error("NO_SUCH_DIR")
+        
+        uuid, label = result[0], result[1]
+        if not label == "File":
+            return 1, throw_error("NO_SUCH_FILE")
         
         query = """
                 match (file: File)
@@ -190,47 +184,7 @@ class DBInterface:
                 detach delete (file)
                 """.format(uuid=uuid)
         result = self.driver.session().write_transaction(self.submit_query, query)
-        return (0, fullpath) if result.single() == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
-
-    def copy_file(self, cur_dir, copy_to_path, delete_original=False):
-        res1, fullpath1 = self.get_fullpath_as_list(cur_dir)
-        res2, fullpath2 = self.get_fullpath_as_list(copy_to_path)
-        # not sufficient check
-        if not self.are_two_fullpaths_same(fullpath1, fullpath2):
-            return 1, throw_error("NO_COPY_TO_ANOTHER_DIR")
-        if not res1 == 0 or not res2 == 0:
-            # fullpath1 will contain an error in this case
-            return 1, throw_error("NO_SUCH_DIR")
-        result1 = self.path_exists(fullpath1)
-        result2 = self.path_exists(fullpath2)
-        if not result1 or not result2:
-            return 1, throw_error("NO_SUCH_DIR")
-        
-        uuid1, label1, uuid2, label2 = result1[0], result1[1], result2[0], result2[1]
-
-        if not label2 == 'Dir':
-            return 1, throw_error("NO_SUCH_DIR")
-
-        if not label1 == 'File':
-            return 1, throw_error("NO_SUCH_FILE")
-        
-        filename = fullpath1[len(fullpath1)-1]
-        ''' commented because datanodes-side will handle the naming'''
-        # if not self.is_name_unique(uuid2, filename):
-        #     return 1, throw_error("NAME_EXISTS")
-
-        res, fp = self.create_file(fullpath1[len(fullpath1)], cur_dir, uuid=uuid2)
-        if res == 0:
-            if delete_original:
-                res1, fp1 = self.delete_file(cur_dir, uuid=uuid1)
-                if res1 == 0:
-                    return 0, [fullpath1, fullpath2]
-            else:
-                return 0, [fullpath1, fullpath2]
-        return 1, throw_error("INVALID_REQUEST")
-
-    def move_file(self, cur_dir, move_to_path):
-        return self.copy_file(cur_dir, move_to_path, delete_original=True)
+        return (0, fullpath) if result == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
 
     def list_files(self, cur_dir):
         res, fullpath = self.get_fullpath_as_list(cur_dir)
@@ -247,7 +201,6 @@ class DBInterface:
         return self.list_all(uuid=uuid)
 
     def make_dir(self, cur_dir):
-        # do you handle existence of chaining dirs?
         res, fullpath = self.get_fullpath_as_list(cur_dir)
         if not res == 0:
             # fullpath will contain an error in this case
@@ -259,9 +212,6 @@ class DBInterface:
         uuid, label = result[0], result[1]
         if not label == 'Dir':
             return 1, throw_error("INVALID_REQUEST")
-
-        if not self.is_name_unique(uuid, new_dir_name):
-            return 1, throw_error("DIR_EXISTS")
         
         query = """
                 match (dir: Dir) where dir.uuid = "{uuid}"
@@ -270,7 +220,7 @@ class DBInterface:
                 """.format(uuid=uuid, name=new_dir_name)
 
         result = self.driver.session().write_transaction(self.submit_query, query)
-        return (0, fullpath) if result.single() == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
+        return (0, fullpath) if result == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
 
     def delete_dir(self, cur_dir):
         res, fullpath = self.get_fullpath_as_list(cur_dir)
@@ -289,7 +239,7 @@ class DBInterface:
                 """.format(uuid=uuid)
 
         result = self.driver.session().write_transaction(self.submit_query, query)
-        return (0, fullpath) if result.single() == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
+        return (0, fullpath) if result == None else (1, throw_error("QUERY_DID_NOT_SUCCEED"))
 
     def close_connection(self):
         self.driver.close()

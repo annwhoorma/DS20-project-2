@@ -2,7 +2,6 @@
 # fullpath is a list like ["anya", "folder", "file"] and it's always a full path
 from errors import throw_error
 from DBinterface import DBInterface
-from user import User
 from Datanode import Datanode
 from time import time
 import json
@@ -35,10 +34,7 @@ class Namenode:
             "auth": self.auth,
             "new_user": self.add_user,
             "create_file": self.create_file,
-            "read_file": self.read_file,
-            "write_file": self.write_file,
             "delete_file": self.delete_file,
-            "info_file": self.info_file,
             "copy_file": self.copy_file,
             "move_file": self.move_file,
             "open_dir": self.open_dir,
@@ -171,85 +167,52 @@ class Namenode:
         return (0, ["/"]) if res == 0 else (1, {"error": arg})
 
     def create_file(self, args):
-        filename = args["filename"]
         cur_dir = args["cur_dir"]
-        res, arg = self.database.create_file(filename, cur_dir)
+        res, arg = self.database.create_file(cur_dir)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
-
-    def read_file(self, args):
-        pass
-    #     cur_dir = args["cur_dir"]
-    #     path = args["filename"] # might include dirs
-    #     fullpath, arg = self.database.get_fullpath_as_list(cur_dir, path=path)
-    #     if fullpath == 1:
-    #         return 1, {"error": arg}
-    #     res, arg = self.database.path_exists(fullpath, required_label="File")
-    #     return (0, {"path": arg}) if res == True else (1, {"error": arg})
-
-    def write_file(self, args):
-        pass
-    #     cur_dir = args["cur_dir"]
-    #     path = args["filename"]
-    #     fullpath, arg = self.database.get_fullpath_as_list(cur_dir, path)
-    #     if fullpath == 1:
-    #         return 1, {"error": arg}
-    #     res, arg = self.database.path_exists(fullpath, required_label="File")
-    #     return (0, {"path": arg}) if res == True else (1, {"error": arg})
     
     def delete_file(self, args):
         cur_dir = args["cur_dir"]
-        path = args["filename"]
-        res, arg = self.database.delete_file(cur_dir, path)
-        return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
-
-    def info_file(self, args):
-        cur_dir = args["cur_dir"]
-        path = args["filename"]
-        fullpath, arg = self.database.get_fullpath_as_list(cur_dir)
-        if fullpath == 1:
-            return 1, {"error": arg}
-        res, arg = self.database.path_exists(fullpath, required_label="File")
+        res, arg = self.database.delete_file(cur_dir)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
     
     def copy_file(self, args):
-        cur_dir = args["cur_dir"]
-        path_from = args["filename"]
-        path_to = args["dest_dir"]
-        res, arg = self.database.copy_file(cur_dir, path_from, path_to)
-        # arg is [src, dst]
-        return (0, {"path": arg[0]}) if res == 0 else (1, {"error": arg})
+        cur_dir = args["cur_dir"] # will include the old name
+        new_name = args["new_name"]
+        new_path = substitute_file_name(cur_dir, new_name)
+        res, arg = self.database.create_file(new_path)
+        return (0, {}) if res == 0 else (1, {"error": arg})
 
     def move_file(self, args):
         cur_dir = args["cur_dir"]
-        path_from = args["filename"]
-        path_to = args["dest_dir"]
-        res, arg = self.database.move_file(cur_dir, path_to)
+        filename = retrieve_filename(cur_dir)
+        dst_dir = append_filename_to_path(args["dest_dir"], filename)
+        res1, arg1 = self.database.delete_file(cur_dir)
+        res2, arg2 = self.database.create_file(dst_dir)
         # arg is [src, dst]
-        return (0, {"src": arg[0], "dst": arg[1]}) if res == 0 else (1, {"error": arg})
+        return (0, {}) if res1 == 0 and res2 == 0 else (1, {"error": arg1 + " & " + arg2})
 
     def open_dir(self, args):
         cur_dir = args["cur_dir"]
-        path = args["target_dir"]
-        fullpath = self.database.get_fullpath_as_list(cur_dir)
-        if self.database.path_exists(fullpath, required_label="Dir"):
+        res, fullpath = self.database.get_fullpath_as_list(cur_dir)
+        print(fullpath)
+        res, arg  = self.database.path_exists(fullpath, required_label="Dir")
+        if res != 1:
             return 0, {}
         return 1, {"error": throw_error("NO_SUCH_DIR")}
     
     def read_dir(self, args):
-        cur_dir = args["cur_dir"]
         path = args["target_dir"]
-        res, arg = self.database.list_files(cur_dir)
+        res, arg = self.database.list_files(path)
         return (0, {"dirs": arg}) if res == 0 else (1, {"error": arg})
         
     def make_dir(self, args):
         cur_dir = args["cur_dir"]
-        path = args["new_dir"]
         res, arg = self.database.make_dir(cur_dir)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
 
     def del_dir(self, args):
         cur_dir = args["cur_dir"]
-        path = args["del_dir"]
         res, arg = self.database.delete_dir(cur_dir)
         return (0, {"path": arg}) if res == 0 else (1, {"error": arg})
 
@@ -260,18 +223,66 @@ class Namenode:
         return False
 
 
-def preprocessing(namenode_command, fullpath):
-    user, path = fullpath_to_string(fullpath)
+def preprocessing(namenode_command, args):
     datanode_command = commands_mapping[namenode_command]
+    if datanode_command == "file_move":
+        src = args["cur_dir"]
+        dst = args["dest_dir"]
+        user, src = client_path_to_string(src)
+        user, dst = client_path_to_string(dst)
+        fields = {
+            "user": "/{username}".format(username=user),
+            "src": "src".format(src=src),
+            "dst": "dst".format(dst=dst)
+        }
+        return datanode_command, fields
+
+    client_path = args["cur_dir"]
+    user, path = client_path_to_string(client_path)
     fields = {
         "user": "/{username}".format(username=user),
         "path": path
     }
     return datanode_command, fields
 
-def fullpath_to_string(fullpath):
+def client_path_to_string(client_path):
+    fullpath = []
+    fullpath = client_path.split('/')
+    while '' in fullpath:
+        fullpath.remove('')
     user = fullpath.pop(0)
-    path = ""
-    for entry in fullpath:
-        path += "/{entry}".format(entry=entry)
-    return user, path
+    new_path = ""
+    while len(fullpath) > 0:
+        new_path += "/" + fullpath.pop(0)
+    return user, new_path
+
+def substitute_file_name(path, new_name):
+    fullpath = []
+    fullpath = path.split('/')
+    while '' in fullpath:
+        fullpath.remove('')
+    fullpath.remove(len(fullpath)-1)
+    fullpath.append(new_name)
+    new_path = ""
+    while len(fullpath) > 0:
+        new_path += "/" + fullpath.pop(0)
+    return new_path
+
+def append_filename_to_path(path, filename):
+    fullpath = []
+    fullpath = path.split('/')
+    while '' in fullpath:
+        fullpath.remove('')
+    fullpath.append(filename)
+    new_path = ""
+    while len(fullpath) > 0:
+        new_path += "/" + fullpath.pop(0)
+    return new_path
+
+def retrieve_filename(path):
+    fullpath = []
+    fullpath = path.split('/')
+    while '' in fullpath:
+        fullpath.remove('')
+    filename = fullpath.pop(len(fullpath)-1)
+    return filename
