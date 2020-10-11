@@ -1,9 +1,4 @@
 ```json
-# Note: 
-# 		ВСЕ directories end on "/"
-# 		ДЕЛАТЬ ПРОВЕРКУ на ввод директорий с клиента - все должны кончаться на "/"
-#		Обсудить загрузку и выгрузку файлов
-
 #		ok = "<3"
 #		notok = "</3"
 
@@ -12,8 +7,7 @@
 {
     "action" : "auth",
     "args" : {
-        "login" : login,
-        "password" : password
+        "login" : login
     }
 }
 # 		from server
@@ -31,8 +25,7 @@
 {
     "action" : "new_user",
     "args" : {
-        "login" : login,
-        "password" : password
+        "login" : login
     }
 }
 # 		from server
@@ -50,8 +43,7 @@
 {
     "action" : "create_file",
     "args" : {
-        "cur_dir" : cur_dir,
-        "filename" : filename
+        "cur_dir" : cur_dir # includes file name
     }
 }
 # 		from server
@@ -67,8 +59,7 @@
 {
     "action" : "read_file",
     "args" : {
-        "cur_dir" : cur_dir,
-        "filename" : filename
+        "cur_dir" : cur_dir # includes file name
     }
 }
 # 		from server
@@ -84,8 +75,7 @@
 {
     "action" : "write_file",
     "args" : {
-        "cur_dir" : cur_dir,
-        "filename" : filename
+        "cur_dir" : cur_dir # includes file name
     }
 }
 # 		from server
@@ -101,8 +91,7 @@
 {
     "action" : "delete_file",
     "args" : {
-        "cur_dir" : cur_dir,
-        "filename" : filename
+        "cur_dir" : cur_dir # includes file name
     }
 }
 # 		from server
@@ -118,8 +107,7 @@
 {
     "action" : "info_file",
     "args" : {
-        "cur_dir" : cur_dir,
-        "filename" : filename
+        "cur_dir" : cur_dir #includes file name
     }
 }
 # 		from server
@@ -139,9 +127,8 @@
 {
     "action" : "copy_file",
     "args" : {
-        "cur_dir" : cur_dir,
-        "dest_dir" : dest_dir
-        "filename" : filename
+        "cur_dir" : cur_dir, # includes filename
+        # file will be copied to the same directory only, so (because that s how it is at datanode's side)
     }
 }
 # 		from server
@@ -157,9 +144,8 @@
 {
     "action" : "move_file",
     "args" : {
-        "cur_dir" : cur_dir,
-        "dest_dir" : dest_dir
-        "filename" : filename
+        "cur_dir" : cur_dir, # includes file name
+        "dest_dir" : dest_dir # full path like /ruslan/...
     }
 }
 # 		from server
@@ -177,6 +163,7 @@
     "args" : {
         "cur_dir" : cur_dir,
         "target_dir" : target_dir
+        "up": true / false # true if go up in the directories tree, false is go deep
     }
 }
 # 		from server
@@ -193,8 +180,7 @@
 {
     "action" : "read_dir",
     "args" : {
-        "cur_dir" : cur_dir,
-        "target_dir" : target_dir
+        "target_dir" : target_dir # full path (cur_dir + relative path)
     }
 }
 # 		from server
@@ -221,8 +207,8 @@
 {
     "action" : "make_dir",
     "args" : {
-        "cur_dir" : cur_dir,
-        "new_dir" : new_dir
+        "cur_dir" : cur_dir # include the new_dir
+		# like: /ruslan/existing_folder/new_folder 
     }
 }
 # 		from server
@@ -238,8 +224,8 @@
 {
     "action" : "del_dir",
     "args" : {
-        "cur_dir" : cur_dir,
-        "del_dir" : del_dir
+        "cur_dir" : cur_dir # includes the directory to delete
+        # like: /ruslan/existing_folder/folder_to_delete
     }
 }
 # 		from server
