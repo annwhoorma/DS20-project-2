@@ -7,8 +7,6 @@ from time import time
 import json
 
 MASTER_DOWN_TIMEOUT = 11
-MASTER_NODE_TYPE = 'master'
-SLAVE_NODE_TYPE = 'slave'
 
 
 commands_mapping = {
@@ -86,8 +84,9 @@ class Namenode:
         ip = args["node"]
         node = Datanode(ip)
         master = self.get_master()
-        if len(self.datanodes) == 0:
+        if len(self.datanodes) == 0 or master == None:
             node.promote()
+            self.master_timestamp = time()
             ret_args = {"master": ip, "node_status": "new"}
         elif self.is_old_node(node):
             # the node just got up
@@ -95,37 +94,50 @@ class Namenode:
         else:
             # the node just joined
             ret_args = {"master": master.ip, "node_status": "new"}
+        self.datanodes.append(node)
 
         return 0, ret_args
 
     def change_master(self, args):
+        if len(self.datanodes) == 0:
+            return 1, {"error": "Invalid request"}
+        master = self.get_master()
+        master_ip = master.ip if master else ""
         if self.is_master_down():
-            node_ip = args["node_ip"]
-            master_ip = ""
-            master = self.get_master()
-            if not master:
-                master_ip = node_ip
-                self.find_datanode_by_ip(master_ip).promote()
+            node_ip = args["node"] # should i check that it exists?
+            if not self.find_datanode_by_ip(node_ip):
+                return 1, {"master": "{ip}".format(ip=master_ip)}
+            self.get_master().demote()
+            self.find_datanode_by_ip(node_ip).promote()
+            master_ip = self.get_master().ip
             return 0, {"master": "{ip}".format(ip=master_ip)}
-        return 1, {"error": throw_error("INVALID_REQUEST")}
+
+        return 1, {"master": "{ip}".format(ip=master_ip)}
 
     def update_slaves_list(self, args):
+        if len(self.datanodes) == 0:
+            return 1, {"error": "Invalid request"}
         slaves_ips = args["slaves"]
+        print(slaves_ips)
         for ip in slaves_ips:
             node = self.find_datanode_by_ip(ip)
-            node.demote()
-        return 2, {}
+            if not node:
+                node.demote()
+            else:
+                return 1, {"error": "Invalid request"}
+                
+        return 0, {}
 
-    def send_slaves_list(self, args):
+    def send_slaves_list(self):
         ips = []
         for node in self.datanodes:
-            if node.type == SLAVE_NODE_TYPE:
+            if node.type == 'slave':
                 ips.append(node.ip)
         return 0, {"slaves": ips}
 
     ''' helping methods '''
     def is_master_down(self):
-        if time() - self.master_timestamp < MASTER_DOWN_TIMEOUT:
+        if time() - self.master_timestamp > MASTER_DOWN_TIMEOUT:
             return True
         return False
 
@@ -137,7 +149,7 @@ class Namenode:
 
     def get_master(self):
         for node in self.datanodes:
-            if node.type == MASTER_NODE_TYPE:
+            if node.type == 'master':
                 return node
         return
 

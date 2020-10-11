@@ -41,11 +41,11 @@ def requires_namenode_only(cmd):
 
 @client.route('/', methods=['GET'])
 def index():
-    msg = request.json # from Ruslan or Alla
+    msg = request.json
     if is_heartbeat_protocol(msg["command"]):
         print("heartbeat protocol detected")
         action = msg["command"] 
-        args = msg["args"] if not msg["command"] == "<3" else ""
+        args = msg["args"] if not (msg["command"] == "<3" or msg["command"] == "share_slaves") else {}
         status, args = namenode.perform_action_heartbeat(action, args)
         if status == 1:
             return jsonify(status="Failed", args={})
