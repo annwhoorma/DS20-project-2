@@ -61,20 +61,9 @@ def init_fs(node_status):
 
 def share_slaves():
     global SLAVES
+    res = {"command": "get_slaves", "args": {}}
 
-    res = ""
-    slaves_tmp = ""
-    for item in SLAVES:
-        slaves_tmp += " "
-        slaves_tmp += item
-
-    if slaves_tmp != "":
-        slaves_tmp = slaves_tmp[1:]
-        print(slaves_tmp)
-    else:
-        slaves_tmp = "none"
-    res = {"command": "get_slaves", "args": {"slaves": slaves_tmp}}
-
+    res["args"]["slaves"] = SLAVES
     try:
         requests.get(NAME_SERVER_ADDRESS, json=res, timeout=1)
     except requests.exceptions.ReadTimeout:
@@ -88,8 +77,8 @@ def get_slaves():
     message = {"command": "share_slaves"}
     response = json.loads(requests.get(NAME_SERVER_ADDRESS, json=message).text)
 
-    if response["args"]["slaves"] != "none":
-        SLAVES = response["args"]["slaves"].split(" ")
+    SLAVES = response["args"]["slaves"]
+    print("------SLAVES--------", SLAVES)
 
 def update_time_stamp():
     global TIME_STAMP

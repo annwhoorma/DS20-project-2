@@ -44,16 +44,9 @@ class Http_handler(BaseHTTPRequestHandler):
         elif command == "share_slaves":
             SLAVES += NEW_SLAVES
             NEW_SLAVES = []
-            slaves_tmp = ""
-            for item in SLAVES:
-                slaves_tmp += " "
-                slaves_tmp += item
 
-            if len(slaves_tmp) > 1:
-                slaves_tmp = slaves_tmp[1:]
-            else:
-                slaves_tmp = "none"
-            res = {"status": "OK", "args": {"slaves": slaves_tmp}}
+            res = {"status": "OK", "args": {}}
+            res["args"]["slaves"] = SLAVES
         elif command == "change_master":
             node_ip = message["args"]["node_ip"]
 
@@ -69,7 +62,7 @@ class Http_handler(BaseHTTPRequestHandler):
         elif command == "get_slaves":
             print(message["args"]["slaves"], "\n")
             if message["args"]["slaves"] != "none":
-                SLAVES = message["args"]["slaves"].split(" ")
+                SLAVES = message["args"]["slaves"]
                 SLAVES += NEW_SLAVES
                 NEW_SLAVES = []
         res = json.dumps(res)
