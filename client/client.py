@@ -15,7 +15,7 @@ BUFF_SIZE = 1024
 FTP_PORT = 1338
 
 NAMENODE_HOST = "localhost"
-NAMENODE_PORT = 8080
+NAMENODE_PORT = 5000
 NAMENODE_ADDRESS = "http://{}:{}".format(NAMENODE_HOST, NAMENODE_PORT)
 
 def get_full_name(current, name):
@@ -34,8 +34,8 @@ def auth():
     CUR_USER = request.form.getlist('login')[0]
     password = request.form.getlist('password')[0]
     
-    msg = json.dumps({"command" : "auth",
-                      "args" : {"login" : CUR_USER}})
+    msg = {"command" : "auth",
+           "args" : {"login" : CUR_USER}}
     
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
@@ -60,8 +60,8 @@ def new_user():
     CUR_USER = request.form.getlist('login')[0]
     password = request.form.getlist('password')[0]
     
-    msg = json.dumps({"command" : "new_user",
-                      "args" : {"login" : CUR_USER}})
+    msg = {"command" : "new_user",
+           "args" : {"login" : CUR_USER}}
     
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
@@ -84,8 +84,8 @@ def read_dir():
     
     target_dir = request.form.getlist('target_dir')[0]
     
-    msg = json.dumps({"command" : "read_dir",
-                      "args" : {"target_dir" : target_dir}})
+    msg = {"command" : "read_dir",
+           "args" : {"target_dir" : target_dir}}
     
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
@@ -106,8 +106,8 @@ def open_dir():
     
     target_dir = request.form.getlist('target_dir')[0]
     
-    msg = json.dumps({"command" : "open_dir",
-                      "args" : {"cur_dir" : target_dir}})
+    msg = {"command" : "open_dir",
+          "args" : {"cur_dir" : target_dir}}
     
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
@@ -128,8 +128,8 @@ def make_dir():
     
     new_dir = request.form.getlist('new_dir')[0]
     
-    msg = json.dumps({"command" : "make_dir",
-                      "args" : {"cur_dir" : new_dir}})
+    msg = {"command" : "make_dir",
+           "args" : {"cur_dir" : new_dir}}
     
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
@@ -149,8 +149,8 @@ def del_dir():
     
     del_dir = request.form.getlist('del_dir')[0]
     
-    msg = json.dumps({"command" : "make_dir",
-                      "args" : {"cur_dir" : del_dir}})
+    msg = {"command" : "make_dir",
+           "args" : {"cur_dir" : del_dir}}
     
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
@@ -170,8 +170,8 @@ def create_file():
     
     filename = get_full_name(CUR_DIR, request.form.getlist('filename')[0])
     
-    msg = json.dumps({"command" : "create_file",
-                      "args" : {"cur_dir" : filename}})
+    msg = {"command" : "create_file",
+           "args" : {"cur_dir" : filename}}
     
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
@@ -191,8 +191,8 @@ def delete_file():
     
     filename = get_full_name(CUR_DIR, request.form.getlist('filename')[0])
     
-    msg = json.dumps({"command" : "delete_file",
-                      "args" : {"cur_dir" : filename}})
+    msg = {"command" : "delete_file",
+           "args" : {"cur_dir" : filename}}
     
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
@@ -212,8 +212,8 @@ def info_file():
     
     filename = get_full_name(CUR_DIR, request.form.getlist('filename')[0])
     
-    msg = json.dumps({"command" : "info_file",
-                      "args" : {"cur_dir" : filename}})
+    msg = {"command" : "info_file",
+                      "args" : {"cur_dir" : filename}}
     
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
@@ -235,8 +235,8 @@ def copy_file():
     filename = get_full_name(CUR_DIR,request.form.getlist('filename')[0])
     dest_dir = request.form.getlist('dest_dir')[0]
     
-    msg = json.dumps({"command" : "copy_file",
-                      "args" : {"cur_dir" : filename}})
+    msg = {"command" : "copy_file",
+           "args" : {"cur_dir" : filename}}
     
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
@@ -257,9 +257,9 @@ def move_file():
     filename = get_full_name(CUR_DIR, request.form.getlist('filename')[0])
     dest_dir = request.form.getlist('dest_dir')[0]
     
-    msg = json.dumps({"command" : "move_file",
-                      "args" : {"cur_dir" : filename,
-                                "dest_dir" : dest_dir}})
+    msg = {"command" : "move_file",
+           "args" : {"cur_dir" : filename,
+                     "dest_dir" : dest_dir}}
     
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
@@ -297,17 +297,12 @@ def read_file():
     
     filename = get_full_name(CUR_DIR, request.form.getlist('filename')[0])
     
-    msg_json = {"command" : "read_file",
-                "args" : {"cur_dir" : filename}}
-    
-    msg = json.dumps(msg_json)
-    
+    msg = {"command" : "read_file",
+           "args" : {"cur_dir" : filename}}
+        
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
-    if response["status"] == ok:
-        # recieve the file here
-        read_file_from_server(msg_json["args"]["filename"])
-        
+    if response["status"] == ok:        
         return render_template("main.html", name = CUR_USER,
                                cur_dir = CUR_DIR)
     elif response["status"] == notok:
@@ -317,6 +312,11 @@ def read_file():
     else:
         return render_template("error.html", response = response)  
     
+@app.route("/receive_file", methods = ["POST", "GET"])
+def receive_file():
+    file = request.files['file']
+    filename = file.filename
+    file.save("{}/{}".format(CLIENT_FOLDER, filename))
     
 def write_file_from_client(filename):
     path = "{}/{}".format(CLIENT_FOLDER, filename)
@@ -342,16 +342,15 @@ def write_file():
     
     filename = get_full_name(CUR_DIR, request.form.getlist('filename')[0])
     
-    msg_json = {"command" : "write_file",
-                "args" : {"cur_dir" : filename}}
-    
-    msg = json.dumps(msg_json)
+    msg = {"command" : "write_file",
+           "args" : {"cur_dir" : filename}}
     
     response = requests.get(NAMENODE_ADDRESS, json = msg).json()
     
-    if response["status"] == ok:
-        # upload the file here
-        write_file_from_client(msg_json["args"]["filename"])
+    if response["status"] == ok:  
+        path = "{}/{}".format(CLIENT_FOLDER, filename)
+        file = open(path)
+        requests.request(method='get', url=NAMENODE_ADDRESS, files={'name': (filename, file)})
         
         return render_template("main.html", name = CUR_USER,
                                cur_dir = CUR_DIR)
@@ -360,7 +359,7 @@ def write_file():
                                cur_dir = CUR_DIR,
                                write_file_error = response["args"]["error"])
     else:
-        return render_template("error.html", response = response)  
+        return render_template("error.html", response = response)
     
 if __name__ == "__main__":
     app.run(host = "0.0.0.0", port = 1234)

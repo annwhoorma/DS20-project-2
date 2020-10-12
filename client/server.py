@@ -8,7 +8,7 @@ import threading
 ok = "<3"
 notok = "</3"
 
-PORT = 8080
+PORT = 5000
 FTP_PORT = 1338
 BUFF_SIZE = 1024
 
@@ -66,7 +66,8 @@ def copy_file():
 def move_file():
     return json.dumps({"status" : ok,
                        "args": {"error" : ""}})
-    
+   
+# socket implementation
 def send_file_to_client():
     file = "file.txt"
     path = "{}/{}".format(SERVER_FOLDER, file)
@@ -106,6 +107,7 @@ def write_file():
     return json.dumps({"status" : ok,
                        "args": {"error" : ""}}) 
             
+# socket implementation
 def read_file_from_client():
     file = "uploaded.txt"
     path = "{}/{}".format(SERVER_FOLDER, file)
@@ -144,7 +146,7 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
         content_length = int(self.headers['content-length'])
         content = self.rfile.read(content_length)
         
-        msg = json.loads(json.loads(content.decode()))
+        msg = json.loads(content.decode())
         print(msg)
         
         if msg["command"] == "auth":
@@ -204,15 +206,18 @@ class fake_namenode(http.server.BaseHTTPRequestHandler):
             # Checking if such file exists
             response = read_file()
             
-            send_file_thread = threading.Thread(target=send_file_to_client, daemon=True)
-            send_file_thread.start()
+            #send_file_thread = threading.Thread(target=send_file_to_client, daemon=True)
+            #send_file_thread.start()
             
         elif msg["command"] == "write_file":
             # Checking if client can upload such file
             response = write_file()
             
-            read_file_thread = threading.Thread(target=read_file_from_client, daemon=True)
-            read_file_thread.start()
+            #read_file_thread = threading.Thread(target=read_file_from_client, daemon=True)
+            #read_file_thread.start()
+        
+        elif msg["command"] == "receive_file":
+            
             
         else:
             response = no()
