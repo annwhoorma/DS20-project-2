@@ -13,8 +13,9 @@ import random
 
 # testing - curl -X GET -d
 # '{"command": "file_delete", "args": {"user": "/Users/admin/Desktop/ds/", "path": "test.txt"}}'
-# localhost:1337
+# localhost:1400
 
+SENDING = ''
 MASTER_IP = ''
 #node_ip = requests.get('https://api.ipify.org').text
 #NODE_IP = os.environ.get('MY_IP')
@@ -31,6 +32,7 @@ TIME_STAMP = 0
 
 ########### functions for nodes' communication ###########
 def init_node():
+    global NAME_SERVER_ADDRESS
     global MASTER_IP
     global NODE_IP
     message = {"command": "init_node",
@@ -45,15 +47,15 @@ def init_node():
     if response['status'] == "OK":
         MASTER_IP = response["args"]["master"]
         print("MASTER_IP: ", MASTER_IP)
-        init_fs(response['args']['node_status'])
     else:
-        print("-----------Retrying to initialize node-----------")
-        init_node()
+        print("-----------CANNOT INIT NODE-----------")
+        #init_node()
         # ? should I do it like this?
-
+    return response
 def init_fs(node_status):
     if node_status == 'new':
-        request_fs()
+        process = Process(target=request_fs())
+        process.start()
         print("------------Successfully initialized------------")
     else:
         ## вернуть -> os.system("rm -r */")
@@ -85,6 +87,7 @@ def update_time_stamp():
     TIME_STAMP = time.time()
 
 def slave_command_distribution(message):
+    global SLAVES
     print(SLAVES)
     for slave in SLAVES:
         try:
@@ -101,52 +104,75 @@ def change_master(message):
     MASTER_IP = message["args"]["node_ip"]
 
 def request_fs():
+    global FTP_PORT
+    global NODE_IP
+    global MASTER_IP
+    global HTTP_PORT
     message = {"command": "send_fs", "args": {"ip": NODE_IP}}
-    message = json.dumps(message)
-    master_address = 'http://' + MASTER_IP + ':' + str(PORT_http)
-    response = json.loads(requests.get(master_address, json=message, timeout=0.000001).text)
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    host = ""
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind((host, FTP_PORT))
-    s.listen(5)
-    conn, addr = s.accept()
+    master_address = 'http://' + MASTER_IP + ':' + str(HTTP_PORT)
+    try:
+        response = json.loads(requests.get(master_address, json=message, timeout=10).text)
+    except requests.exceptions.ReadTimeout:
+        pass
+    except requests.exceptions.ConnectionError:
+        pass
+
+    s = socket.socket()
+    host = socket.gethostname()
+    time.sleep(5)
+    s.connect((MASTER_IP, FTP_PORT))
+
     with open('fs.zip', 'wb') as f:
         while True:
-            data = conn.recv(1024)
+            data = s.recv(1024)
             if not data:
                 break
-
             f.write(data)
 
-        f.close()
-        conn.close()
-        s.close()
+    f.close()
+    s.close()
 
-        os.system("unzip bckp.zip")
-        os.system("rm bckp.zip")
-
+    os.system("unzip fs.zip")
+    os.system("rm fs.zip")
 
 
 def send_fs(message):
+    global SENDING
+    global FTP_PORT
+
     node = message["args"]["ip"]
     os.system(
-        "zip -r fs.zip $(ls) -x \"storageserver.py\" \"README.md\" \".zip\" \"requirements.txt\" \"Dockerfile\" \"docker-compose.yml\" ")
+        "zip -r fs.zip $(ls) -x  \"README.md\" \"requirements.txt\" \"Dockerfile\"  \"server.py\"  \"fake_name_node.py\" ")
     s = socket.socket()
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.connect((node, PORT_ftp_send))
 
-    filepath = 'fs.zip'
-    f = open(filepath, 'rb')
-    l = f.read(1024)
-    while (l):
-        s.send(l)
+
+
+    s = socket.socket()             # Create a socket object
+    host = socket.gethostname()     # Get local machine name
+    s.bind((host, FTP_PORT))            # Bind to the port
+    s.listen(5)                     # Now wait for client connection.
+
+
+    while True:
+        print("-----------SENDING FS-----------")
+        conn, addr = s.accept()     # Establish connection with client.
+        data = conn.recv(1024)
+
+        filename='fs.zip'
+        f = open(filename,'rb')
         l = f.read(1024)
-    f.close()
-    s.close()
+        while (l):
+           conn.send(l)
+           print('Sent ',repr(l))
+           l = f.read(1024)
+        f.close()
+
+        print('Done sending')
+        conn.close()
+
     os.system("rm fs.zip")
-    return json.dumps({"status": "OK"})
+    SENDING = ''
 
 ########### inner functions ###########
 def check_path(message):
@@ -353,7 +379,7 @@ def send_file(message):
 def read_file(message):
     process = Process(target=send_file(message))
     process.start()
-    return json.dumbs({"status": "OK", "message": "Uploading..."})
+    return json.dumps({"status": "OK", "message": "Uploading..."})
 
 def receive_file(message):
     root = message["args"]["user"]
@@ -362,7 +388,7 @@ def receive_file(message):
 
     s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.connect((node, PORT_ftp_send))
+    s.connect((node, FTP_PORT))
 
     f = open(filename, 'rb')
     l = f.read(1024)
@@ -384,12 +410,14 @@ class Http_handler(BaseHTTPRequestHandler):
     def do_GET(self):
         global MASTER_IP
         global NODE_IP
+
         res = ''
         content_length = int(self.headers['Content-Length'])
         data = self.rfile.read(content_length)
         message = json_read(data)
         command = message['command']
 
+        print("--------command--------", command)
         if command == "init":
             res = init_user(message)
             if MASTER_IP == NODE_IP:
@@ -432,9 +460,12 @@ class Http_handler(BaseHTTPRequestHandler):
         elif command == "change_master":
             change_master(message)
         elif command == "send_fs":
-            res = send_fs(message)
+            res = json.dumps({"status": "OK"})
+            thread2 = threading.Thread(target=send_fs(message))
+            thread2.start()
         else:
             res = json.dumps({"status": "Failed", "message": "Invalid command"})
+
 
         self.send_response(200)
         self.end_headers()
@@ -448,8 +479,10 @@ class Master():
         thread.start()
 
     def start(self):
+        global SENDING
         global MASTER_IP
         while NODE_IP == MASTER_IP:
+            time.sleep(2)
             get_slaves()
             message = {"command": "<3"}
             print(SLAVES)
@@ -467,10 +500,9 @@ class Master():
                         SLAVES.remove(slave)
                         print("-----------Node {} is dead-----------".format(slave))
                 except requests.exceptions.ConnectionError:
-                    if SLAVES != []:
 
-                        SLAVES.remove(slave)
-                        print("-----------Node {} is dead-----------".format(slave))
+                    SLAVES.remove(slave)
+                    print("-----------Node {} is dead-----------".format(slave))
 
             share_slaves()
 
@@ -488,7 +520,7 @@ class Slave():
     def start(self):
         global MASTER_IP
         while True:
-            if time.time() - TIME_STAMP > 3:
+            if time.time() - TIME_STAMP > 4:
                 time.sleep(random.randint(1, 4))
                 message  = {"command": "change_master", "args": {"node_ip": NODE_IP}}
                 response = json.loads(requests.get(NAME_SERVER_ADDRESS, json=message, timeout=1).text)
@@ -510,7 +542,9 @@ if __name__ == "__main__":
     print(NODE_IP)
     NODE_ADDRESS = ('', HTTP_PORT)
     httpd = HTTPServer(NODE_ADDRESS, Http_handler)
-    init_node()
+    res = init_node()
+    thread = threading.Thread(target=init_fs(res['args']['node_status']))
+    thread.start()
     if NODE_IP == MASTER_IP:
         master = Master()
     else:

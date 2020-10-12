@@ -50,7 +50,7 @@ class Http_handler(BaseHTTPRequestHandler):
         elif command == "change_master":
             node_ip = message["args"]["node_ip"]
 
-            if time.time() - TIME_STAMP > 3:
+            if time.time() - TIME_STAMP > 4:
                 res = {"status": "Failed", "args": {"master": node_ip, "node_status": "old"}}
                 MASTER_IP = node_ip
                 print("NEW MASTER", MASTER_IP)
