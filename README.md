@@ -2,9 +2,6 @@
 Alla Chepurova, Anna Boronina, Ruslan Mihailov
 
 ## How to launch and use
-### Installation
-```pip install ____``` - to install all the dependencies
-```dfs status ____``` - to check ____ if it is alive
 
 ### Usage
 First thing to do before using our DFS is to log in:
@@ -19,10 +16,6 @@ After creation of new user in our file system, you will be welcomed by the main 
 For the sake of visuality, actions among files and directories are separated into 2 sections, where one can easily execute needed commands. The command starts as the button (which represents the action itself) is pressed. Couple of examples of functionality and outputs of our DFS:
 ![](https://i.imgur.com/btaN6yu.png)
 ![](https://i.imgur.com/F3fAyoc.png)
-
-
-
-
 
 
 ## Architectural diagram
@@ -91,9 +84,9 @@ In return, the namenode will receive a response message. An example is below.
 }
 ```
 
-### Heartbeat Protocol
+## Heartbeat Protocol
 
-Initiation. Leader election.
+### Initiation. Leader election.
 
 ![](https://i.imgur.com/IUMPM8J.png)
 
@@ -133,10 +126,21 @@ The communication with the other nodes is the following:
 
 
 ## Link to the GitHub and Docker Hub
+
 [Github link](https://github.com/annwhoorma/DS20-project-2)
+
 [Data nodes image](https://hub.docker.com/repository/docker/screemix/datastorage)
-[Client Flask applicationg image](https://hub.docker.com/r/dmmc123/client_web_app)
-[Namenode image]()
+
+[Client Flask application image](https://hub.docker.com/r/dmmc123/client_web_app)
+
+[Namenode image](https://hub.docker.com/repository/docker/whoorma/namenode)
+
+[Neo4j used by Namenode image](https://hub.docker.com/repository/docker/whoorma/neo4j-for-namenode)
+
+Note that the last two images are both needed for a namenode to work properly. For some reason, while testing, the exposed port 5000 didn't get mapped on the local machine. So, you can test it by running the command below *inside* the namenode container. 
+``` json
+curl --header "Content-Type: application/json" --request GET --data '{"command": "init_node", "args": {"node": "10.0.0.1"}}' http://localhost:5000/
+```
 
 ## Contribution of each team member
 
@@ -150,7 +154,7 @@ In addition to that, the namenode is responsible for keeping a list of all activ
 
 ### Alla Chepuróva
 
-Alla's task was to implement the communication with the Namenode and logic of interaction between Datanodes: replicating of data, dealing with storages, executing commands connecting with file systems, etc. Also the essential part of her task was to implement heartbeat protocol to maintain the consistency, fault tolerance and scalability of the application. As a result, the filesystems could be stored in consistent way on different machines.
+Alla's task was to implement the communication with the Namenode and logic of interaction between Datanodes: replication of data, dealing with storages, executing commands connecting with file systems, etc. Also the essential part of her task was to implement heartbeat protocol to maintain the consistency, fault tolerance and scalability of the application. As a result, the filesystems could be stored in consistent way on different machines.
 
 ### Ruslan Mihaylov
 
@@ -163,7 +167,7 @@ Ruslan was implementing a Flask web application for the client. In general, it s
 1. Each one of us showed themselves as a completely independent developer.
 2. Each one of us showed that they are ready to devote a huge amount of time to learn something new such as files replication across multiple machines or writing an HTTP-server and a client using different approaches.
 
-There were two main reasons why the work flow didn't go as expected and we did not finish the work:
+### Things that could go better
 
 1. We experienced lack of communication within the team. We had only one meeting during which we had discussed what we wanted to see as our final result and split the tasks. We thought that our parts were mostly independent and it would be easy to define how these part were going to communicate in the end. We were definitely wrong about that. 
 2. Misunderstandings regarding the design. Since we were working mostly independently, some of our wrong conclusions stayed with each team member until the end. For example, the validity checks were implemented in both namenode and datanode. It had led to a lot of lines of redundant code.
