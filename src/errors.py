@@ -1,7 +1,7 @@
-import json
-
-# make sure that username or file or directory != ""
-
+# a file that was create to make the errors throwing process easier for the namenode
+'''
+a dictionary of the pairs <error_code, error_text>
+'''
 errors = {
     "REFUSE_AUTH": "Authentification failed",
     "NO_SUCH_USER": "No such user found",
@@ -19,6 +19,9 @@ errors = {
     "NO_COPY_TO_ANOTHER_DIR": "Sorry, you can not copy to another directory"
 }
 
+'''
+@param: code - error code which will return the description of the error
+'''
 def throw_error(code):
     if not code:
         return "ERROR"

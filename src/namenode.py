@@ -6,9 +6,11 @@ from Datanode import Datanode
 from time import time
 import json
 
-MASTER_DOWN_TIMEOUT = 11
+MASTER_DOWN_TIMEOUT = 4
 
-
+'''
+dictionary: key is the command from the client, value is the command for the datanode
+'''
 commands_mapping = {
     "new_user": "init",
     "create_file": "file_create",
@@ -22,6 +24,10 @@ commands_mapping = {
     "del_dir": "delete_dir"
 }
 
+'''
+class that describes the main functionality of the namenode - handling of client requests
+and of the heartbeats protocol
+'''
 class Namenode:
     def __init__(self):
         self.users = []
@@ -36,6 +42,8 @@ class Namenode:
             "copy_file": self.copy_file,
             "move_file": self.move_file,
             "open_dir": self.open_dir,
+            "read_file": self.open_file,
+            "write_file": self.open_file,
             "read_dir": self.read_dir,
             "make_dir": self.make_dir,
             "del_dir": self.del_dir,
@@ -48,10 +56,14 @@ class Namenode:
             "share_slaves": self.send_slaves_list
         }
     
+    '''
+    performs an action in the database
+    @param: action - which command
+    @args: arguments
+    @return: (0, info) in case no error occured, (1, error message) otherwise
+    '''
     def perform_action_database(self, action, args):
-        print("perform action", args)
         res, arg = self.funcs_client[action](args)
-        print(res, arg)
         if not res == 0:
             return 1, arg
         return res, arg
@@ -63,7 +75,6 @@ class Namenode:
         if not args and (action == "<3" or action == "share_slaves"):
             res, arg = self.funcs_datanode[action]()
             return res, arg
-
         res, arg = self.funcs_datanode[action](args)
         if not res == 0:
             return 1, {"error": throw_error("INVALID_REQUEST")}
@@ -73,10 +84,12 @@ class Namenode:
     METHODS RELATED TO THE HEARTBEATS PROTOCOL
     '''
     
+    ''' updates that master is active '''
     def update_master_timestamp(self):
         self.master_timestamp = time()
         return 2, ""
     
+    ''' initializes a new node or notices that an old node recovered '''
     def init_node(self, args):
         ret_args = {}
         if not args["node"]:
@@ -98,6 +111,8 @@ class Namenode:
 
         return 0, ret_args
 
+    ''' handle a request from a slave-datanode to become a master
+    it becomes a master if the current master is proven to be down '''
     def change_master(self, args):
         if len(self.datanodes) == 0:
             return 1, {"error": "Invalid request"}
@@ -114,28 +129,26 @@ class Namenode:
 
         return 1, {"master": "{ip}".format(ip=master_ip)}
 
+    ''' master sends its own list of slaves so that the namenode can mark some datanodes as inactive '''
     def update_slaves_list(self, args):
-        if len(self.datanodes) == 0:
-            return 1, {"error": "Invalid request"}
         slaves_ips = args["slaves"]
-        print(slaves_ips)
-        for ip in slaves_ips:
-            node = self.find_datanode_by_ip(ip)
-            if not node:
-                node.demote()
+        for node in self.datanodes:
+            if node.ip in slaves_ips:
+                node.status = 'active'
             else:
-                return 1, {"error": "Invalid request"}
-                
+                node.status = 'inactive'
         return 0, {}
 
+    ''' master requests namenode's list of slaves so that the master knows if any new datanodes joined '''
     def send_slaves_list(self):
         ips = []
         for node in self.datanodes:
-            if node.type == 'slave':
+            if node.type == 'slave' and node.status != "inactive":
                 ips.append(node.ip)
         return 0, {"slaves": ips}
 
-    ''' helping methods '''
+    ''' HELPING METHODS '''
+
     def is_master_down(self):
         if time() - self.master_timestamp > MASTER_DOWN_TIMEOUT:
             return True
@@ -160,7 +173,7 @@ class Namenode:
         return
 
     '''
-    METHODS RELATED TO THE CLIENT PROTOCOL
+    METHODS RELATED TO THE CLIENT PROTOCOL - the names are self-explanatory so the full documentation is not provided
     '''
 
     def auth(self, args):
@@ -207,12 +220,19 @@ class Namenode:
     def open_dir(self, args):
         cur_dir = args["cur_dir"]
         res, fullpath = self.database.get_fullpath_as_list(cur_dir)
-        print(fullpath)
         res, arg  = self.database.path_exists(fullpath, required_label="Dir")
         if res != 1:
             return 0, {}
         return 1, {"error": throw_error("NO_SUCH_DIR")}
     
+    def open_file(self, args):
+        cur_dir = args["cur_dir"]
+        res, fullpath = self.database.get_fullpath_as_list(cur_dir)
+        res, arg  = self.database.path_exists(fullpath, required_label="File")
+        if res != 1:
+            return 0, {}
+        return 1, {"error": throw_error("NO_SUCH_FILE")}
+
     def read_dir(self, args):
         path = args["target_dir"]
         res, arg = self.database.list_files(path)
@@ -234,7 +254,13 @@ class Namenode:
                 return True
         return False
 
-
+'''
+@param: namenode_command - client's command ("new_user", "file_info")
+@param: args - args that client passed
+@return: datanode_command - command for the datanode
+@return: fields - args for the datanode
+convert the command from the client to the command for the datanode
+'''
 def preprocessing(namenode_command, args):
     datanode_command = commands_mapping[namenode_command]
     if datanode_command == "file_move":
@@ -257,6 +283,13 @@ def preprocessing(namenode_command, args):
     }
     return datanode_command, fields
 
+'''
+@param: client_path - client's path
+@return: user - username extracted from client's path
+@return: new_path - path for the datanode
+
+'anya/DS/ds.md' -> ('anya', '/DS/ds.md')
+'''
 def client_path_to_string(client_path):
     fullpath = []
     fullpath = client_path.split('/')
@@ -268,6 +301,12 @@ def client_path_to_string(client_path):
         new_path += "/" + fullpath.pop(0)
     return user, new_path
 
+'''
+@param: path - client's path with the file name at the end
+@return: new_path - same path to the copied file (hence changed name)
+
+'anya/DS/ds.md' -> 'anya/DS/ds(1).md'
+'''
 def substitute_file_name(path, new_name):
     fullpath = []
     fullpath = path.split('/')
@@ -280,6 +319,12 @@ def substitute_file_name(path, new_name):
         new_path += "/" + fullpath.pop(0)
     return new_path
 
+'''
+@param: path - client's path with the directory name at the end
+@return: filename - file name to append
+
+'anya/DS' -> 'anya/DS/ds.md'
+'''
 def append_filename_to_path(path, filename):
     fullpath = []
     fullpath = path.split('/')
@@ -291,6 +336,12 @@ def append_filename_to_path(path, filename):
         new_path += "/" + fullpath.pop(0)
     return new_path
 
+'''
+@param: path - client's path with the file name at the end
+@return: filename - extracted file name
+
+'anya/DS/ds.md' -> 'ds.md'
+'''
 def retrieve_filename(path):
     fullpath = []
     fullpath = path.split('/')
