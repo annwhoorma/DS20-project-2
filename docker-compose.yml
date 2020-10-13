@@ -4,11 +4,24 @@ services:
         build:
             context: ./
             dockerfile: Dockerfile-python
+        ports:
+            - "5000:5000"   
+        networks:
+            - servers
+        depends_on: 
+            - neo4j-database
     neo4j-database:
         build:
             context: ./
             dockerfile: Dockerfile-neo4j
-        expose:
-        - "7474"
-        - "7473"
-        - "7687"
+        ports:
+            - "7474:7474"
+            - "7473:7473"
+            - "7687:7687"
+        networks:
+            - servers
+
+networks:
+    servers:
+        driver: bridge
+    

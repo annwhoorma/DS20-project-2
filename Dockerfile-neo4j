@@ -1,5 +1,9 @@
 FROM neo4j:latest
 WORKDIR /
-COPY apoc-4.1.0.2-all.jar /var/lib/neo4j/plugins
+ENV NEO4J_AUTH=neo4j/ohmyg0d
+COPY neo4j-docker/apoc.conf /var/lib/neo4j/conf
+COPY neo4j-docker/apoc-4.1.0.2-all.jar /var/lib/neo4j/plugins
 RUN chmod 755 /var/lib/neo4j/plugins/apoc-4.1.0.2-all.jar
-EXPOSE 7474 7473 7687
+EXPOSE 7474 
+EXPOSE 7473 
+EXPOSE 7687

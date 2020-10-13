@@ -1,6 +1,7 @@
 FROM python:slim
-RUN pip3 install flask requests
+RUN pip install flask requests neo4j
 WORKDIR /namenode
 COPY src/ /namenode
-EXPOSE 8080
-CMD python3 main.py
+EXPOSE 5000
+ENTRYPOINT ["python"]
+CMD ["main.py"]
