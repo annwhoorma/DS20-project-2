@@ -1,14 +1,16 @@
 from neo4j import GraphDatabase
 from neo4j import unit_of_work
 from errors import throw_error
+import time
 
 # default settings for neo4j access
-uri = "bolt://localhost:7687"
+uri = "bolt://neo4j-database:7687"
 username_db = "neo4j"
-password_db = "admin"
+password_db = "ohmyg0d"
 
 class DBInterface:
     def __init__(self, namenode):
+        time.sleep(10)
         self.driver = GraphDatabase.driver(uri, auth=(username_db, password_db))
         self.create_constraints()
 
